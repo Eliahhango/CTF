@@ -138,6 +138,10 @@ define('CTF_RULES', env_value('CTF_RULES', ''));
 define('CTF_PRIZES', env_value('CTF_PRIZES', ''));
 define('CTF_DISCORD', env_value('CTF_DISCORD', ''));
 define('CTF_ORGANIZER', env_value('CTF_ORGANIZER', 'Cyber Club DIT'));
+define('MAIL_FROM', env_value('MAIL_FROM', ''));
+define('MAIL_FROM_NAME', env_value('MAIL_FROM_NAME', APP_NAME));
+define('RESET_TOKEN_TTL_MINUTES', (int)env_value('RESET_TOKEN_TTL_MINUTES', '60'));
+define('BASE_URL_FULL', env_value('BASE_URL_FULL', ''));
 
 // UPLOADS
 $uploadDirValue = env_value('UPLOAD_DIR', __DIR__ . '/uploads');

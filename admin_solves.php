@@ -112,7 +112,7 @@ include __DIR__ . '/header.php';
 ?>
 
 <div class="term-block mb-3">
-  <h2 class="section-head mb-2">// SOLVES_LOG</h2>
+  <h2 class="section-head mb-2">Solves Log</h2>
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
     <span class="small text-muted">Paginated event stream with correct and incorrect submission views.</span>
     <div class="d-flex align-items-center gap-2">

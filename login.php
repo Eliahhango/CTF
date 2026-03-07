@@ -62,6 +62,9 @@ include __DIR__ . '/header.php';
         </div>
 
         <button class="btn btn-primary w-100" type="submit">Sign In</button>
+        <div class="text-center mt-3">
+          <a href="<?= e(BASE_URL) ?>/forgot_password.php" class="text-muted small">Forgot password?</a>
+        </div>
 
         <div class="mt-3 small text-muted">
           New user? <a href="<?= e(BASE_URL) ?>/register.php">Create account</a>

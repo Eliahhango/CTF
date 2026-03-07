@@ -129,7 +129,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('/admin_challenges.php');
         }
 
-        $hintRows = parse_submitted_hints($_POST['hint_text'] ?? [], $_POST['hint_cost'] ?? []);
+        $hintRows = parse_submitted_hints(
+            $_POST['hints'] ?? ($_POST['hint_text'] ?? []),
+            $_POST['hint_costs'] ?? ($_POST['hint_cost'] ?? [])
+        );
 
         try {
             $pdo->beginTransaction();
@@ -186,10 +189,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
              VALUES (?,?,?,?,?,?,?,?,?,1,NOW())'
         );
         $stmt->execute([$title, $category, $points, $initialPoints, $floorPoints, $decaySolves, $scoringType, $description, $flag_hash]);
-        $challengeId = (int)$pdo->lastInsertId();
+        $newId = (int)$pdo->lastInsertId();
+        $challengeId = $newId;
 
-        $hintRows = parse_submitted_hints($_POST['hint_text'] ?? [], $_POST['hint_cost'] ?? []);
-        insert_hints_for_challenge($pdo, $challengeId, $hintRows);
+        $hints = is_array($_POST['hints'] ?? null) ? $_POST['hints'] : [];
+        $hintCosts = is_array($_POST['hint_costs'] ?? null) ? $_POST['hint_costs'] : [];
+        $hintInsertStmt = $pdo->prepare('INSERT INTO hints (challenge_id, content, cost, sort_order) VALUES (?,?,?,?)');
+
+        foreach ($hints as $i => $hintTextRaw) {
+            $hintText = sanitize_str($hintTextRaw, 2000);
+            $hintCost = max(0, (int)($hintCosts[$i] ?? 0));
+            if ($hintText !== '') {
+                $hintInsertStmt->execute([$newId, $hintText, $hintCost, (int)$i]);
+            }
+        }
 
         $uploadSummary = process_challenge_attachment_batch($challengeId, $_FILES['attachments'] ?? null, 'create');
         $message = 'Challenge created.';
@@ -279,6 +292,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  WHERE id=?'
             );
             $stmt->execute([$title, $category, $points, $initialPoints, $floorPoints, $decaySolves, $scoringType, $description, $id]);
+        }
+
+        $pdo->prepare('DELETE FROM hints WHERE challenge_id=?')->execute([$id]);
+        $hints = is_array($_POST['hints'] ?? null) ? $_POST['hints'] : [];
+        $hintCosts = is_array($_POST['hint_costs'] ?? null) ? $_POST['hint_costs'] : [];
+        $hintInsertStmt = $pdo->prepare('INSERT INTO hints (challenge_id, content, cost, sort_order) VALUES (?,?,?,?)');
+        foreach ($hints as $i => $hintTextRaw) {
+            $hintText = sanitize_str($hintTextRaw, 2000);
+            $hintCost = max(0, (int)($hintCosts[$i] ?? 0));
+            if ($hintText !== '') {
+                $hintInsertStmt->execute([$id, $hintText, $hintCost, (int)$i]);
+            }
         }
 
         $uploadSummary = process_challenge_attachment_batch($id, $_FILES['attachments_edit'] ?? null, 'update');
@@ -432,13 +457,11 @@ include __DIR__ . '/header.php';
             <input class="form-control" name="flag" required placeholder="ccd{...}">
           </div>
 
-          <div class="mb-3" data-hints-builder>
-            <label class="form-label d-flex justify-content-between align-items-center">
-              <span>Hints</span>
-              <button type="button" class="btn btn-sm btn-outline-secondary add-hint-row">Add Hint</button>
-            </label>
-            <div class="vstack gap-2 hint-rows"></div>
-            <div class="form-text">Each hint can have a point cost. Use 0 for free hints.</div>
+          <div class="mb-3">
+            <label class="form-label">Hints (optional)</label>
+            <div id="createHintList"></div>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="addHintRow('createHintList')">+ Add Hint</button>
+            <div class="form-text">Each hint has text and an optional point cost (0 = free).</div>
           </div>
 
           <div class="mb-3">
@@ -586,44 +609,36 @@ include __DIR__ . '/header.php';
                     </div>
 
                     <div class="mb-3">
+                      <label class="form-label">Hints (optional)</label>
+                      <input type="hidden" name="hint_action" value="update_hints">
+                      <div id="editHintList<?= e((string)$c['id']) ?>">
+                        <?php foreach ($existingHints as $hint): ?>
+                          <div class="d-flex gap-2 align-items-start hint-row mb-2">
+                            <textarea class="form-control" name="hints[]" rows="2" placeholder="Hint text"><?= e((string)$hint['content']) ?></textarea>
+                            <input
+                              class="form-control"
+                              type="number"
+                              min="0"
+                              name="hint_costs[]"
+                              value="<?= e((string)$hint['cost']) ?>"
+                              placeholder="Cost (pts)"
+                              style="max-width: 130px;"
+                            >
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeHintRow(this)">Remove</button>
+                          </div>
+                        <?php endforeach; ?>
+                      </div>
+                      <button type="button" class="btn btn-sm btn-outline-secondary mt-1" onclick="addHintRow('editHintList<?= e((string)$c['id']) ?>')">+ Add Hint</button>
+                      <div class="form-text">Each hint has text and an optional point cost (0 = free).</div>
+                    </div>
+
+                    <div class="mb-3">
                       <label class="form-label">Add Attachments (optional)</label>
                       <input class="form-control" type="file" name="attachments_edit[]" multiple>
                     </div>
 
                     <button class="btn btn-primary" type="submit">Save</button>
                   </form>
-
-                  <div class="border rounded p-3 mb-3">
-                    <h6 class="mb-2">Hints</h6>
-                    <form method="post" data-hints-builder>
-                      <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                      <input type="hidden" name="action" value="update_hints">
-                      <input type="hidden" name="id" value="<?= e((string)$c['id']) ?>">
-
-                      <div class="vstack gap-2 hint-rows">
-                        <?php foreach ($existingHints as $hint): ?>
-                          <div class="border rounded p-2 hint-row">
-                            <div class="mb-2">
-                              <label class="form-label small mb-1">Hint text</label>
-                              <textarea class="form-control" name="hint_text[]" rows="3"><?= e((string)$hint['content']) ?></textarea>
-                            </div>
-                            <div class="d-flex align-items-center gap-2">
-                              <div class="flex-grow-1">
-                                <label class="form-label small mb-1">Cost (0=free)</label>
-                                <input class="form-control" type="number" min="0" name="hint_cost[]" value="<?= e((string)$hint['cost']) ?>">
-                              </div>
-                              <button type="button" class="btn btn-sm btn-outline-danger remove-hint-row mt-4">Remove</button>
-                            </div>
-                          </div>
-                        <?php endforeach; ?>
-                      </div>
-
-                      <div class="d-flex flex-wrap gap-2 mt-2">
-                        <button type="button" class="btn btn-sm btn-outline-secondary add-hint-row">Add Hint</button>
-                        <button class="btn btn-sm btn-primary" type="submit">Save Hints</button>
-                      </div>
-                    </form>
-                  </div>
 
                   <div class="border rounded p-3">
                     <h6 class="mb-2">Existing Files</h6>
@@ -662,6 +677,27 @@ include __DIR__ . '/header.php';
 </div>
 
 <script>
+function addHintRow(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const row = document.createElement('div');
+  row.className = 'd-flex gap-2 align-items-start hint-row mb-2';
+  row.innerHTML = `
+    <textarea class="form-control" name="hints[]" placeholder="Hint text" rows="2"></textarea>
+    <input class="form-control" type="number" name="hint_costs[]" min="0" value="0" placeholder="Cost (pts)" style="max-width: 130px;">
+    <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeHintRow(this)">Remove</button>
+  `;
+  container.appendChild(row);
+}
+
+function removeHintRow(btn) {
+  const row = btn.closest('.hint-row');
+  if (row) {
+    row.remove();
+  }
+}
+
 (function () {
   const forms = Array.from(document.querySelectorAll('form[data-scoring-form]'));
   forms.forEach((form) => {
@@ -679,53 +715,10 @@ include __DIR__ . '/header.php';
     sync();
   });
 
-  function buildHintRow(text, cost) {
-    const row = document.createElement('div');
-    row.className = 'border rounded p-2 hint-row';
-    row.innerHTML = `
-      <div class="mb-2">
-        <label class="form-label small mb-1">Hint text</label>
-        <textarea class="form-control" name="hint_text[]" rows="3">${text || ''}</textarea>
-      </div>
-      <div class="d-flex align-items-center gap-2">
-        <div class="flex-grow-1">
-          <label class="form-label small mb-1">Cost (0=free)</label>
-          <input class="form-control" type="number" min="0" name="hint_cost[]" value="${Number.isFinite(cost) ? cost : 0}">
-        </div>
-        <button type="button" class="btn btn-sm btn-outline-danger remove-hint-row mt-4">Remove</button>
-      </div>
-    `;
-    return row;
+  const createHintList = document.getElementById('createHintList');
+  if (createHintList && createHintList.children.length === 0) {
+    addHintRow('createHintList');
   }
-
-  const hintBuilders = Array.from(document.querySelectorAll('[data-hints-builder]'));
-  hintBuilders.forEach((builder) => {
-    const rowsWrap = builder.querySelector('.hint-rows');
-    const addButtons = Array.from(builder.querySelectorAll('.add-hint-row'));
-    if (!rowsWrap || !addButtons.length) return;
-
-    function addHintRow(text = '', cost = 0) {
-      rowsWrap.appendChild(buildHintRow(text, cost));
-    }
-
-    addButtons.forEach((btn) => {
-      btn.addEventListener('click', () => addHintRow('', 0));
-    });
-
-    builder.addEventListener('click', (evt) => {
-      const target = evt.target;
-      if (!(target instanceof HTMLElement)) return;
-      if (!target.classList.contains('remove-hint-row')) return;
-
-      const row = target.closest('.hint-row');
-      if (!row) return;
-      row.remove();
-    });
-
-    if (rowsWrap.children.length === 0) {
-      addHintRow('', 0);
-    }
-  });
 
   const challengeFilterInput = document.getElementById('challengeFilterInput');
   const challengeTable = document.getElementById('challengeAdminTable');

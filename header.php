@@ -104,10 +104,13 @@ if ($now < $startTs) {
 
     * { box-sizing: border-box; }
 
-    html, body { min-height: 100%; }
+    html { height: 100%; }
 
     body {
       margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
       background: var(--bg-page);
       color: var(--text-main);
       font-family: 'Inter', 'Poppins', 'Segoe UI', Arial, sans-serif;
@@ -254,6 +257,7 @@ if ($now < $startTs) {
     main.container {
       padding-top: 1.25rem;
       padding-bottom: 1.5rem;
+      flex: 1 0 auto;
     }
 
     .page-title {
@@ -569,7 +573,8 @@ if ($now < $startTs) {
       border-top: 1px solid var(--border);
       background: #ffffff;
       padding: .8rem 0;
-      margin-top: 1rem;
+      margin-top: 0;
+      flex-shrink: 0;
       color: #64748b;
       font-size: .86rem;
     }
@@ -604,6 +609,34 @@ if ($now < $startTs) {
       color: #0f172a;
       margin-bottom: .75rem;
     }
+
+    /* Legacy admin utility classes */
+    .term-block {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #2563eb;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+    }
+
+    .prompt-label {
+      font-weight: 600;
+      color: #334155;
+      margin-bottom: .35rem;
+      display: block;
+    }
+
+    .score-user { color: #2563eb; font-weight: 600; }
+    .score-points { color: #2563eb; font-weight: 700; text-align: right; }
+
+    .btn-green { background: #16a34a; border-color: #16a34a; color: #fff; }
+    .btn-green:hover { background: #15803d; border-color: #15803d; color: #fff; }
+    .btn-red { background: transparent; color: #dc2626; border: 1px solid #dc2626; }
+    .btn-red:hover { background: #dc2626; color: #fff; }
+    .btn-amber { background: transparent; color: #d97706; border: 1px solid #d97706; }
+    .btn-amber:hover { background: #d97706; color: #fff; }
+    .btn-cyan { background: transparent; color: #0891b2; border: 1px solid #0891b2; }
+    .btn-cyan:hover { background: #0891b2; color: #fff; }
 
     @media (max-width: 991.98px) {
       .navbar-nav .app-nav-link {

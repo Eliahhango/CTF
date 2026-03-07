@@ -92,7 +92,7 @@ include __DIR__ . '/header.php';
 ?>
 
 <div class="term-block mb-3">
-  <h2 class="section-head mb-2">// USER_MANAGEMENT</h2>
+  <h2 class="section-head mb-2">User Management</h2>
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
     <span class="small text-muted">Approve, ban, or restore operator accounts.</span>
     <div class="d-flex gap-2 align-items-center">
