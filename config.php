@@ -133,6 +133,11 @@ define('APP_TIMEZONE', env_value('APP_TIMEZONE', 'Africa/Dar_es_Salaam'));
 define('CHALLENGES_OPEN_AT', env_value('CHALLENGES_OPEN_AT', '2026-02-27 21:10:00'));
 define('CHALLENGES_CLOSE_AT', env_value('CHALLENGES_CLOSE_AT', '2026-03-01 21:00:00'));
 define('FREEZE_SCOREBOARD_AT', env_value('FREEZE_SCOREBOARD_AT', ''));
+define('CTF_DESCRIPTION', env_value('CTF_DESCRIPTION', 'A hands-on Capture The Flag platform for practical cybersecurity learning.'));
+define('CTF_RULES', env_value('CTF_RULES', ''));
+define('CTF_PRIZES', env_value('CTF_PRIZES', ''));
+define('CTF_DISCORD', env_value('CTF_DISCORD', ''));
+define('CTF_ORGANIZER', env_value('CTF_ORGANIZER', 'Cyber Club DIT'));
 
 // UPLOADS
 $uploadDirValue = env_value('UPLOAD_DIR', __DIR__ . '/uploads');

@@ -43,6 +43,55 @@ function process_challenge_attachment_batch(int $challengeId, ?array $uploadFiel
     return ['uploaded' => $uploaded, 'failed' => $failed];
 }
 
+/**
+ * Parse submitted hint text/cost fields into normalized rows.
+ *
+ * @return array<int,array{content:string,cost:int,sort_order:int}>
+ */
+function parse_submitted_hints(mixed $textsRaw, mixed $costsRaw): array
+{
+    $texts = is_array($textsRaw) ? $textsRaw : [];
+    $costs = is_array($costsRaw) ? $costsRaw : [];
+
+    $max = max(count($texts), count($costs));
+    $rows = [];
+    $order = 0;
+
+    for ($i = 0; $i < $max; $i++) {
+        $content = sanitize_str($texts[$i] ?? '', 20000);
+        $cost = sanitize_int($costs[$i] ?? 0, 0, 0);
+
+        if ($content === '') {
+            continue;
+        }
+
+        $rows[] = [
+            'content' => $content,
+            'cost' => max(0, $cost),
+            'sort_order' => $order++,
+        ];
+    }
+
+    return $rows;
+}
+
+/**
+ * Insert hint rows for a challenge.
+ *
+ * @param array<int,array{content:string,cost:int,sort_order:int}> $hintRows
+ */
+function insert_hints_for_challenge(PDO $pdo, int $challengeId, array $hintRows): void
+{
+    if ($challengeId <= 0 || $hintRows === []) {
+        return;
+    }
+
+    $stmt = $pdo->prepare('INSERT INTO hints (challenge_id, content, cost, sort_order) VALUES (?,?,?,?)');
+    foreach ($hintRows as $row) {
+        $stmt->execute([$challengeId, $row['content'], $row['cost'], $row['sort_order']]);
+    }
+}
+
 $pdo = db();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -60,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
             delete_challenge_file($fileId);
+            log_admin_action('remove_challenge_file', 'challenge_file', $fileId);
             flash_set('success', 'Attachment removed.');
         } catch (Throwable $e) {
             app_log_error('challenge file removal failed', [
@@ -72,10 +122,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('/admin_challenges.php');
     }
 
+    if ($action === 'update_hints') {
+        $challengeId = sanitize_int($_POST['id'] ?? 0, 0, 1);
+        if ($challengeId <= 0) {
+            flash_set('danger', 'Invalid challenge for hints update.');
+            redirect('/admin_challenges.php');
+        }
+
+        $hintRows = parse_submitted_hints($_POST['hint_text'] ?? [], $_POST['hint_cost'] ?? []);
+
+        try {
+            $pdo->beginTransaction();
+            $pdo->prepare('DELETE FROM hints WHERE challenge_id=?')->execute([$challengeId]);
+            insert_hints_for_challenge($pdo, $challengeId, $hintRows);
+            $pdo->commit();
+            log_admin_action('update_challenge_hints', 'challenge', $challengeId, 'hint_count=' . (string)count($hintRows));
+            flash_set('success', 'Hints updated.');
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+
+            app_log_error('challenge hints update failed', [
+                'challenge_id' => $challengeId,
+                'error' => $e->getMessage(),
+            ]);
+            flash_set('danger', 'Could not update hints.');
+        }
+
+        redirect('/admin_challenges.php');
+    }
+
     if ($action === 'create') {
         $title = sanitize_str($_POST['title'] ?? '', 120);
         $category = sanitize_str($_POST['category'] ?? '', 60);
         $points = sanitize_int($_POST['points'] ?? 0, 0, 1);
+        $initialPoints = sanitize_int($_POST['initial_points'] ?? 500, 500, 1);
+        $floorPoints = sanitize_int($_POST['floor_points'] ?? 100, 100, 1);
+        $decaySolves = sanitize_int($_POST['decay_solves'] ?? 50, 50, 1);
+        $scoringTypeRaw = strtolower(sanitize_str($_POST['scoring_type'] ?? 'static', 20));
+        $scoringType = in_array($scoringTypeRaw, ['static', 'dynamic'], true) ? $scoringTypeRaw : 'static';
         $description = sanitize_str($_POST['description'] ?? '', 20000);
         $flag = sanitize_str($_POST['flag'] ?? '', 255);
 
@@ -84,13 +170,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('/admin_challenges.php');
         }
 
+        $initialPoints = max(1, $initialPoints);
+        $floorPoints = max(1, $floorPoints);
+        $decaySolves = max(1, $decaySolves);
+        if ($initialPoints < $floorPoints) {
+            $initialPoints = $floorPoints;
+        }
+        if ($scoringType === 'dynamic') {
+            $points = $initialPoints;
+        }
+
         $flag_hash = password_hash($flag, PASSWORD_DEFAULT);
         $stmt = $pdo->prepare(
-            'INSERT INTO challenges (title,category,points,description,flag_hash,is_active,created_at)
-             VALUES (?,?,?,?,?,1,NOW())'
+            'INSERT INTO challenges (title,category,points,initial_points,floor_points,decay_solves,scoring_type,description,flag_hash,is_active,created_at)
+             VALUES (?,?,?,?,?,?,?,?,?,1,NOW())'
         );
-        $stmt->execute([$title, $category, $points, $description, $flag_hash]);
+        $stmt->execute([$title, $category, $points, $initialPoints, $floorPoints, $decaySolves, $scoringType, $description, $flag_hash]);
         $challengeId = (int)$pdo->lastInsertId();
+
+        $hintRows = parse_submitted_hints($_POST['hint_text'] ?? [], $_POST['hint_cost'] ?? []);
+        insert_hints_for_challenge($pdo, $challengeId, $hintRows);
 
         $uploadSummary = process_challenge_attachment_batch($challengeId, $_FILES['attachments'] ?? null, 'create');
         $message = 'Challenge created.';
@@ -98,6 +197,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($uploadSummary['uploaded'] > 0) {
             $message .= ' ' . $uploadSummary['uploaded'] . ' attachment(s) uploaded.';
         }
+
+        log_admin_action(
+            'create_challenge',
+            'challenge',
+            $challengeId,
+            'title=' . $title . '; category=' . $category . '; scoring=' . $scoringType
+        );
 
         flash_set('success', $message);
 
@@ -113,6 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id > 0) {
             $stmt = $pdo->prepare('UPDATE challenges SET is_active=1-is_active WHERE id=?');
             $stmt->execute([$id]);
+            log_admin_action('toggle_challenge_status', 'challenge', $id, 'affected=' . (string)$stmt->rowCount());
         }
         redirect('/admin_challenges.php');
     }
@@ -122,6 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($id > 0) {
             $stmt = $pdo->prepare("UPDATE challenges SET is_active=0, title=CONCAT('[DELETED] ', title) WHERE id=?");
             $stmt->execute([$id]);
+            log_admin_action('delete_challenge', 'challenge', $id, 'affected=' . (string)$stmt->rowCount());
         }
 
         flash_set('warning', 'Challenge deactivated.');
@@ -133,6 +241,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $title = sanitize_str($_POST['title'] ?? '', 120);
         $category = sanitize_str($_POST['category'] ?? '', 60);
         $points = sanitize_int($_POST['points'] ?? 0, 0, 1);
+        $initialPoints = sanitize_int($_POST['initial_points'] ?? 500, 500, 1);
+        $floorPoints = sanitize_int($_POST['floor_points'] ?? 100, 100, 1);
+        $decaySolves = sanitize_int($_POST['decay_solves'] ?? 50, 50, 1);
+        $scoringTypeRaw = strtolower(sanitize_str($_POST['scoring_type'] ?? 'static', 20));
+        $scoringType = in_array($scoringTypeRaw, ['static', 'dynamic'], true) ? $scoringTypeRaw : 'static';
         $description = sanitize_str($_POST['description'] ?? '', 20000);
         $flag = sanitize_str($_POST['flag'] ?? '', 255);
 
@@ -141,13 +254,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('/admin_challenges.php');
         }
 
+        $initialPoints = max(1, $initialPoints);
+        $floorPoints = max(1, $floorPoints);
+        $decaySolves = max(1, $decaySolves);
+        if ($initialPoints < $floorPoints) {
+            $initialPoints = $floorPoints;
+        }
+        if ($scoringType === 'dynamic') {
+            $points = $initialPoints;
+        }
+
         if ($flag !== '') {
             $flag_hash = password_hash($flag, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare('UPDATE challenges SET title=?,category=?,points=?,description=?,flag_hash=? WHERE id=?');
-            $stmt->execute([$title, $category, $points, $description, $flag_hash, $id]);
+            $stmt = $pdo->prepare(
+                'UPDATE challenges
+                 SET title=?,category=?,points=?,initial_points=?,floor_points=?,decay_solves=?,scoring_type=?,description=?,flag_hash=?
+                 WHERE id=?'
+            );
+            $stmt->execute([$title, $category, $points, $initialPoints, $floorPoints, $decaySolves, $scoringType, $description, $flag_hash, $id]);
         } else {
-            $stmt = $pdo->prepare('UPDATE challenges SET title=?,category=?,points=?,description=? WHERE id=?');
-            $stmt->execute([$title, $category, $points, $description, $id]);
+            $stmt = $pdo->prepare(
+                'UPDATE challenges
+                 SET title=?,category=?,points=?,initial_points=?,floor_points=?,decay_solves=?,scoring_type=?,description=?
+                 WHERE id=?'
+            );
+            $stmt->execute([$title, $category, $points, $initialPoints, $floorPoints, $decaySolves, $scoringType, $description, $id]);
         }
 
         $uploadSummary = process_challenge_attachment_batch($id, $_FILES['attachments_edit'] ?? null, 'update');
@@ -161,11 +292,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash_set('warning', $uploadSummary['failed'] . ' attachment(s) failed to upload.');
         }
 
+        log_admin_action(
+            'update_challenge',
+            'challenge',
+            $id,
+            'title=' . $title . '; category=' . $category . '; scoring=' . $scoringType
+        );
+
         redirect('/admin_challenges.php');
     }
 }
 
-$challs = $pdo->query('SELECT id,title,category,points,description,is_active,created_at FROM challenges ORDER BY created_at DESC')->fetchAll();
+$challs = $pdo->query(
+    'SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,description,is_active,created_at
+     FROM challenges
+     ORDER BY created_at DESC'
+)->fetchAll();
 
 $challengeFilesById = [];
 if ($challs) {
@@ -189,6 +331,28 @@ if ($challs) {
     }
 }
 
+$challengeHintsById = [];
+if ($challs) {
+    $challengeIds = array_values(array_map(static fn(array $challenge): int => (int)$challenge['id'], $challs));
+    $placeholders = implode(',', array_fill(0, count($challengeIds), '?'));
+    $hintsStmt = $pdo->prepare(
+        "SELECT id, challenge_id, content, cost, sort_order
+         FROM hints
+         WHERE challenge_id IN ($placeholders)
+         ORDER BY sort_order ASC, id ASC"
+    );
+    $hintsStmt->execute($challengeIds);
+    $hintRows = $hintsStmt->fetchAll();
+
+    foreach ($hintRows as $row) {
+        $challengeId = (int)$row['challenge_id'];
+        if (!isset($challengeHintsById[$challengeId])) {
+            $challengeHintsById[$challengeId] = [];
+        }
+        $challengeHintsById[$challengeId][] = $row;
+    }
+}
+
 include __DIR__ . '/header.php';
 ?>
 
@@ -197,7 +361,10 @@ include __DIR__ . '/header.php';
     <h2 class="section-head mb-2">Challenge Control</h2>
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
       <span class="small text-muted">Create, edit, activate, and retire challenge entries.</span>
-      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/admin.php">Back</a>
+      <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_URL) ?>/admin_export_challenges.php">Export CSV</a>
+        <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/admin.php">Back</a>
+      </div>
     </div>
   </div>
 </div>
@@ -207,7 +374,7 @@ include __DIR__ . '/header.php';
     <div class="card h-100">
       <div class="card-body">
         <h3 class="section-head">Create Challenge</h3>
-        <form method="post" enctype="multipart/form-data">
+        <form method="post" enctype="multipart/form-data" data-scoring-form>
           <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
           <input type="hidden" name="action" value="create">
 
@@ -227,6 +394,35 @@ include __DIR__ . '/header.php';
           </div>
 
           <div class="mb-3">
+            <label class="form-label d-block">Scoring Type</label>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" id="create_scoring_static" name="scoring_type" value="static" checked>
+              <label class="form-check-label" for="create_scoring_static">Static</label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="radio" id="create_scoring_dynamic" name="scoring_type" value="dynamic">
+              <label class="form-check-label" for="create_scoring_dynamic">Dynamic</label>
+            </div>
+          </div>
+
+          <div class="dynamic-scoring-fields d-none">
+            <div class="mb-3">
+              <label class="form-label">Initial Points</label>
+              <input class="form-control" name="initial_points" type="number" min="1" value="500">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Floor Points</label>
+              <input class="form-control" name="floor_points" type="number" min="1" value="100">
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Decay at N Solves</label>
+              <input class="form-control" name="decay_solves" type="number" min="1" value="50">
+            </div>
+          </div>
+
+          <div class="mb-3">
             <label class="form-label">Description</label>
             <textarea class="form-control" name="description" rows="6" required></textarea>
           </div>
@@ -234,6 +430,15 @@ include __DIR__ . '/header.php';
           <div class="mb-3">
             <label class="form-label">Flag</label>
             <input class="form-control" name="flag" required placeholder="ccd{...}">
+          </div>
+
+          <div class="mb-3" data-hints-builder>
+            <label class="form-label d-flex justify-content-between align-items-center">
+              <span>Hints</span>
+              <button type="button" class="btn btn-sm btn-outline-secondary add-hint-row">Add Hint</button>
+            </label>
+            <div class="vstack gap-2 hint-rows"></div>
+            <div class="form-text">Each hint can have a point cost. Use 0 for free hints.</div>
           </div>
 
           <div class="mb-3">
@@ -253,9 +458,19 @@ include __DIR__ . '/header.php';
   <div class="col-lg-7">
     <div class="card h-100">
       <div class="card-body">
-        <h3 class="section-head">Challenge Table</h3>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <h3 class="section-head mb-0">Challenge Table</h3>
+          <input
+            type="text"
+            id="challengeFilterInput"
+            class="form-control form-control-sm"
+            style="max-width: 280px;"
+            placeholder="Filter by title or category"
+            autocomplete="off"
+          >
+        </div>
         <div class="table-responsive">
-          <table class="table align-middle">
+          <table class="table align-middle" id="challengeAdminTable">
             <thead>
               <tr>
                 <th>ID</th>
@@ -268,7 +483,8 @@ include __DIR__ . '/header.php';
             </thead>
             <tbody>
               <?php foreach ($challs as $c): ?>
-                <tr>
+                <?php $rowSearch = mb_strtolower((string)$c['title'] . ' ' . (string)$c['category']); ?>
+                <tr data-search="<?= e($rowSearch) ?>">
                   <td><?= e((string)$c['id']) ?></td>
                   <td><?= e((string)$c['title']) ?></td>
                   <td><?= e((string)$c['category']) ?></td>
@@ -301,6 +517,7 @@ include __DIR__ . '/header.php';
 
         <?php foreach ($challs as $c): ?>
           <?php $existingFiles = $challengeFilesById[(int)$c['id']] ?? []; ?>
+          <?php $existingHints = $challengeHintsById[(int)$c['id']] ?? []; ?>
           <div class="modal fade" id="edit<?= e((string)$c['id']) ?>" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-lg">
               <div class="modal-content">
@@ -309,7 +526,7 @@ include __DIR__ . '/header.php';
                   <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                  <form method="post" enctype="multipart/form-data" class="mb-3">
+                  <form method="post" enctype="multipart/form-data" class="mb-3" data-scoring-form>
                     <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
                     <input type="hidden" name="action" value="update">
                     <input type="hidden" name="id" value="<?= e((string)$c['id']) ?>">
@@ -330,6 +547,35 @@ include __DIR__ . '/header.php';
                     </div>
 
                     <div class="mb-3">
+                      <label class="form-label d-block">Scoring Type</label>
+                      <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" id="edit_<?= e((string)$c['id']) ?>_scoring_static" name="scoring_type" value="static" <?= ($c['scoring_type'] ?? 'static') === 'static' ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="edit_<?= e((string)$c['id']) ?>_scoring_static">Static</label>
+                      </div>
+                      <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" id="edit_<?= e((string)$c['id']) ?>_scoring_dynamic" name="scoring_type" value="dynamic" <?= ($c['scoring_type'] ?? 'static') === 'dynamic' ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="edit_<?= e((string)$c['id']) ?>_scoring_dynamic">Dynamic</label>
+                      </div>
+                    </div>
+
+                    <div class="dynamic-scoring-fields<?= ($c['scoring_type'] ?? 'static') === 'dynamic' ? '' : ' d-none' ?>">
+                      <div class="mb-3">
+                        <label class="form-label">Initial Points</label>
+                        <input class="form-control" name="initial_points" type="number" min="1" value="<?= e((string)$c['initial_points']) ?>">
+                      </div>
+
+                      <div class="mb-3">
+                        <label class="form-label">Floor Points</label>
+                        <input class="form-control" name="floor_points" type="number" min="1" value="<?= e((string)$c['floor_points']) ?>">
+                      </div>
+
+                      <div class="mb-3">
+                        <label class="form-label">Decay at N Solves</label>
+                        <input class="form-control" name="decay_solves" type="number" min="1" value="<?= e((string)$c['decay_solves']) ?>">
+                      </div>
+                    </div>
+
+                    <div class="mb-3">
                       <label class="form-label">Description</label>
                       <textarea class="form-control" name="description" rows="8" required><?= e((string)$c['description']) ?></textarea>
                     </div>
@@ -346,6 +592,38 @@ include __DIR__ . '/header.php';
 
                     <button class="btn btn-primary" type="submit">Save</button>
                   </form>
+
+                  <div class="border rounded p-3 mb-3">
+                    <h6 class="mb-2">Hints</h6>
+                    <form method="post" data-hints-builder>
+                      <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                      <input type="hidden" name="action" value="update_hints">
+                      <input type="hidden" name="id" value="<?= e((string)$c['id']) ?>">
+
+                      <div class="vstack gap-2 hint-rows">
+                        <?php foreach ($existingHints as $hint): ?>
+                          <div class="border rounded p-2 hint-row">
+                            <div class="mb-2">
+                              <label class="form-label small mb-1">Hint text</label>
+                              <textarea class="form-control" name="hint_text[]" rows="3"><?= e((string)$hint['content']) ?></textarea>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                              <div class="flex-grow-1">
+                                <label class="form-label small mb-1">Cost (0=free)</label>
+                                <input class="form-control" type="number" min="0" name="hint_cost[]" value="<?= e((string)$hint['cost']) ?>">
+                              </div>
+                              <button type="button" class="btn btn-sm btn-outline-danger remove-hint-row mt-4">Remove</button>
+                            </div>
+                          </div>
+                        <?php endforeach; ?>
+                      </div>
+
+                      <div class="d-flex flex-wrap gap-2 mt-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary add-hint-row">Add Hint</button>
+                        <button class="btn btn-sm btn-primary" type="submit">Save Hints</button>
+                      </div>
+                    </form>
+                  </div>
 
                   <div class="border rounded p-3">
                     <h6 class="mb-2">Existing Files</h6>
@@ -382,5 +660,86 @@ include __DIR__ . '/header.php';
     </div>
   </div>
 </div>
+
+<script>
+(function () {
+  const forms = Array.from(document.querySelectorAll('form[data-scoring-form]'));
+  forms.forEach((form) => {
+    const radios = Array.from(form.querySelectorAll('input[name="scoring_type"]'));
+    const dynamicFields = form.querySelector('.dynamic-scoring-fields');
+    if (!radios.length || !dynamicFields) return;
+
+    const sync = () => {
+      const selected = radios.find((r) => r.checked);
+      const isDynamic = selected && selected.value === 'dynamic';
+      dynamicFields.classList.toggle('d-none', !isDynamic);
+    };
+
+    radios.forEach((radio) => radio.addEventListener('change', sync));
+    sync();
+  });
+
+  function buildHintRow(text, cost) {
+    const row = document.createElement('div');
+    row.className = 'border rounded p-2 hint-row';
+    row.innerHTML = `
+      <div class="mb-2">
+        <label class="form-label small mb-1">Hint text</label>
+        <textarea class="form-control" name="hint_text[]" rows="3">${text || ''}</textarea>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <div class="flex-grow-1">
+          <label class="form-label small mb-1">Cost (0=free)</label>
+          <input class="form-control" type="number" min="0" name="hint_cost[]" value="${Number.isFinite(cost) ? cost : 0}">
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-danger remove-hint-row mt-4">Remove</button>
+      </div>
+    `;
+    return row;
+  }
+
+  const hintBuilders = Array.from(document.querySelectorAll('[data-hints-builder]'));
+  hintBuilders.forEach((builder) => {
+    const rowsWrap = builder.querySelector('.hint-rows');
+    const addButtons = Array.from(builder.querySelectorAll('.add-hint-row'));
+    if (!rowsWrap || !addButtons.length) return;
+
+    function addHintRow(text = '', cost = 0) {
+      rowsWrap.appendChild(buildHintRow(text, cost));
+    }
+
+    addButtons.forEach((btn) => {
+      btn.addEventListener('click', () => addHintRow('', 0));
+    });
+
+    builder.addEventListener('click', (evt) => {
+      const target = evt.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.classList.contains('remove-hint-row')) return;
+
+      const row = target.closest('.hint-row');
+      if (!row) return;
+      row.remove();
+    });
+
+    if (rowsWrap.children.length === 0) {
+      addHintRow('', 0);
+    }
+  });
+
+  const challengeFilterInput = document.getElementById('challengeFilterInput');
+  const challengeTable = document.getElementById('challengeAdminTable');
+  if (challengeFilterInput && challengeTable) {
+    const rows = Array.from(challengeTable.querySelectorAll('tbody tr'));
+    challengeFilterInput.addEventListener('input', () => {
+      const term = challengeFilterInput.value.trim().toLowerCase();
+      rows.forEach((row) => {
+        const source = row.getAttribute('data-search') || '';
+        row.style.display = (term === '' || source.includes(term)) ? '' : 'none';
+      });
+    });
+  }
+})();
+</script>
 
 <?php include __DIR__ . '/footer.php'; ?>

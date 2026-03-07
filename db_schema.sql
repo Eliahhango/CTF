@@ -17,6 +17,10 @@ CREATE TABLE IF NOT EXISTS challenges (
   title VARCHAR(120) NOT NULL,
   category VARCHAR(60) NOT NULL,
   points INT NOT NULL,
+  initial_points INT NOT NULL DEFAULT 500,
+  floor_points INT NOT NULL DEFAULT 100,
+  decay_solves INT NOT NULL DEFAULT 50,
+  scoring_type ENUM('static','dynamic') NOT NULL DEFAULT 'static',
   description TEXT NOT NULL,
   flag_hash VARCHAR(255) NOT NULL,
   is_active TINYINT(1) NOT NULL DEFAULT 1,
@@ -73,3 +77,69 @@ CREATE TABLE IF NOT EXISTS challenge_files (
   INDEX idx_challenge_files_challenge (challenge_id),
   CONSTRAINT fk_cf_challenge FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS hints (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  challenge_id INT NOT NULL,
+  content TEXT NOT NULL,
+  cost INT NOT NULL DEFAULT 0,
+  sort_order INT NOT NULL DEFAULT 0,
+  INDEX idx_hints_challenge_sort (challenge_id, sort_order, id),
+  CONSTRAINT fk_hint_challenge FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS hint_unlocks (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  hint_id INT NOT NULL,
+  points_spent INT NOT NULL DEFAULT 0,
+  unlocked_at DATETIME NOT NULL,
+  UNIQUE KEY uniq_user_hint (user_id, hint_id),
+  INDEX idx_hint_unlocks_user_unlocked (user_id, unlocked_at),
+  CONSTRAINT fk_hu_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_hu_hint FOREIGN KEY (hint_id) REFERENCES hints(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS hint_deductions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  hint_id INT NOT NULL,
+  points_deducted INT NOT NULL,
+  deducted_at DATETIME NOT NULL,
+  INDEX idx_hint_deductions_user_deducted (user_id, deducted_at),
+  CONSTRAINT fk_hd_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS announcements (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(200) NOT NULL,
+  body TEXT NOT NULL,
+  is_pinned TINYINT(1) NOT NULL DEFAULT 0,
+  created_by INT NOT NULL,
+  created_at DATETIME NOT NULL,
+  INDEX idx_announcements_pin_date (is_pinned, created_at),
+  CONSTRAINT fk_ann_user FOREIGN KEY (created_by) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS admin_audit_log (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  admin_id INT NOT NULL,
+  action VARCHAR(100) NOT NULL,
+  target_type VARCHAR(50) NOT NULL,
+  target_id INT DEFAULT NULL,
+  details TEXT DEFAULT NULL,
+  ip_addr VARCHAR(45) NOT NULL,
+  created_at DATETIME NOT NULL,
+  INDEX idx_aal_created (created_at),
+  CONSTRAINT fk_aal_admin FOREIGN KEY (admin_id) REFERENCES users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Migration for existing deployments:
+-- ALTER TABLE challenges
+--   ADD COLUMN initial_points INT NOT NULL DEFAULT 500 AFTER points,
+--   ADD COLUMN floor_points INT NOT NULL DEFAULT 100 AFTER initial_points,
+--   ADD COLUMN decay_solves INT NOT NULL DEFAULT 50 AFTER floor_points,
+--   ADD COLUMN scoring_type ENUM('static','dynamic') NOT NULL DEFAULT 'static' AFTER decay_solves;
+--
+-- If the old single-hint challenge column still exists:
+-- ALTER TABLE challenges DROP COLUMN hint;

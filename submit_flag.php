@@ -23,7 +23,11 @@ if ($user_id <= 0 || $challenge_id <= 0 || $flag === '') {
 
 rate_limit_submit($user_id);
 
-$stmt = db()->prepare('SELECT id,title,points,flag_hash FROM challenges WHERE id=? AND is_active=1');
+$stmt = db()->prepare(
+    'SELECT id,title,points,initial_points,floor_points,decay_solves,scoring_type,flag_hash
+     FROM challenges
+     WHERE id=? AND is_active=1'
+);
 $stmt->execute([$challenge_id]);
 $c = $stmt->fetch();
 if (!$c) {
@@ -52,9 +56,25 @@ try {
         redirect('/challenge.php?id=' . $challenge_id);
     }
 
+    $pointsAwarded = (int)($c['points'] ?? 0);
+
     $pdo->beginTransaction();
+
+    if (($c['scoring_type'] ?? 'static') === 'dynamic') {
+        $countStmt = $pdo->prepare('SELECT COUNT(*) FROM solves WHERE challenge_id=?');
+        $countStmt->execute([$challenge_id]);
+        $nextSolveNumber = ((int)$countStmt->fetchColumn()) + 1;
+
+        $pointsAwarded = calculate_dynamic_points(
+            (int)($c['initial_points'] ?? 500),
+            (int)($c['floor_points'] ?? 100),
+            (int)($c['decay_solves'] ?? 50),
+            $nextSolveNumber
+        );
+    }
+
     $pdo->prepare('INSERT INTO solves (user_id,challenge_id,points_awarded,solved_at) VALUES (?,?,?,NOW())')
-        ->execute([$user_id, $challenge_id, (int)$c['points']]);
+        ->execute([$user_id, $challenge_id, $pointsAwarded]);
     $pdo->commit();
 
     flash_set('success', 'Correct! Points awarded.');

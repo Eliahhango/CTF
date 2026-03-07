@@ -58,9 +58,14 @@ include __DIR__ . '/header.php';
     <h1 class="page-title mb-0">Dashboard</h1>
     <p class="page-subtitle">Welcome back, @<?= e((string)($u['username'] ?? 'operator')) ?></p>
   </div>
-  <?php if ($rank > 0): ?>
-    <span class="badge bg-primary fs-6">Rank #<?= e((string)$rank) ?></span>
-  <?php endif; ?>
+  <div class="d-flex align-items-center gap-2">
+    <?php if ($rank > 0): ?>
+      <span class="badge bg-primary fs-6">Rank #<?= e((string)$rank) ?></span>
+    <?php endif; ?>
+    <a class="btn btn-outline-primary btn-sm" href="<?= e(BASE_URL) ?>/profile.php?username=<?= e(urlencode((string)($u['username'] ?? ''))) ?>">
+      View Public Profile
+    </a>
+  </div>
 </div>
 
 <div class="row g-3 mb-3">

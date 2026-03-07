@@ -135,7 +135,11 @@ include __DIR__ . '/header.php';
             ?>
             <tr class="<?= e(implode(' ', $rowClasses)) ?>">
               <td class="fw-semibold">#<?= e((string)$rank) ?></td>
-              <td>@<?= e((string)$r['username']) ?></td>
+              <td>
+                <a href="<?= e(BASE_URL) ?>/profile.php?username=<?= e(urlencode((string)$r['username'])) ?>">
+                  @<?= e((string)$r['username']) ?>
+                </a>
+              </td>
               <td class="points-cell"><?= e((string)$r['points']) ?></td>
               <td class="text-end"><?= e((string)$r['solves']) ?></td>
               <td class="text-end text-muted"><?= e((string)($r['last_solve'] ?? '-')) ?></td>

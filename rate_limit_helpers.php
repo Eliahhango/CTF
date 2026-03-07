@@ -21,8 +21,13 @@ function rate_limit_submit(int $user_id): void
  */
 function user_points(int $user_id): int
 {
-    $stmt = db()->prepare('SELECT COALESCE(SUM(points_awarded),0) FROM solves WHERE user_id=?');
-    $stmt->execute([$user_id]);
+    $stmt = db()->prepare(
+        'SELECT
+            COALESCE((SELECT SUM(points_awarded) FROM solves WHERE user_id=?), 0)
+            -
+            COALESCE((SELECT SUM(points_deducted) FROM hint_deductions WHERE user_id=?), 0)'
+    );
+    $stmt->execute([$user_id, $user_id]);
     return (int)$stmt->fetchColumn();
 }
 

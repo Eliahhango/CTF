@@ -271,6 +271,46 @@ function ip_address(): string
 }
 
 /**
+ * Persist an admin action in the audit trail.
+ */
+function log_admin_action(string $action, string $target_type, ?int $target_id, string $details = ''): void
+{
+    if (!is_logged_in()) {
+        return;
+    }
+
+    $adminId = sanitize_int($_SESSION['user']['id'] ?? 0, 0, 1);
+    if ($adminId <= 0) {
+        return;
+    }
+
+    $cleanAction = sanitize_str($action, 100);
+    $cleanTargetType = sanitize_str($target_type, 50);
+    $cleanDetails = sanitize_str($details, 4000);
+    $cleanTargetId = ($target_id !== null && $target_id > 0) ? $target_id : null;
+
+    if ($cleanAction === '' || $cleanTargetType === '') {
+        return;
+    }
+
+    try {
+        $stmt = db()->prepare(
+            'INSERT INTO admin_audit_log (admin_id, action, target_type, target_id, details, ip_addr, created_at)
+             VALUES (?,?,?,?,?,?,NOW())'
+        );
+        $stmt->execute([$adminId, $cleanAction, $cleanTargetType, $cleanTargetId, $cleanDetails, ip_address()]);
+    } catch (Throwable $e) {
+        app_log_error('admin audit log write failed', [
+            'admin_id' => $adminId,
+            'action' => $cleanAction,
+            'target_type' => $cleanTargetType,
+            'target_id' => $cleanTargetId,
+            'error' => $e->getMessage(),
+        ]);
+    }
+}
+
+/**
  * Check if challenge window has opened.
  */
 function challenges_are_open(): bool

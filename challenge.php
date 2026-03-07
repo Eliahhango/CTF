@@ -15,7 +15,11 @@ if ($id <= 0) {
     redirect('/challenges.php');
 }
 
-$stmt = db()->prepare('SELECT id,title,category,points,description FROM challenges WHERE id=? AND is_active=1');
+$stmt = db()->prepare(
+    'SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,description
+     FROM challenges
+     WHERE id=? AND is_active=1'
+);
 $stmt->execute([$id]);
 $c = $stmt->fetch();
 if (!$c) {
@@ -26,12 +30,35 @@ if (!$c) {
 $stmt2 = db()->prepare('SELECT 1 FROM solves WHERE user_id=? AND challenge_id=? LIMIT 1');
 $stmt2->execute([sanitize_int($u['id'] ?? 0), $id]);
 $solved = (bool)$stmt2->fetchColumn();
+$userId = sanitize_int($u['id'] ?? 0, 0, 1);
 
 $files = get_challenge_files($id);
 
 $attemptsStmt = db()->prepare('SELECT COUNT(*) FROM solves WHERE challenge_id=?');
 $attemptsStmt->execute([$id]);
 $attemptsCount = (int)$attemptsStmt->fetchColumn();
+
+$scoringType = (string)($c['scoring_type'] ?? 'static');
+$displayPoints = (int)($c['points'] ?? 0);
+if ($scoringType === 'dynamic') {
+    $displayPoints = calculate_dynamic_points(
+        (int)($c['initial_points'] ?? 500),
+        (int)($c['floor_points'] ?? 100),
+        (int)($c['decay_solves'] ?? 50),
+        $attemptsCount + 1
+    );
+}
+
+$hintsStmt = db()->prepare(
+    'SELECT h.id, h.content, h.cost, h.sort_order, hu.id AS unlock_id
+     FROM hints h
+     LEFT JOIN hint_unlocks hu ON hu.hint_id = h.id AND hu.user_id = ?
+     WHERE h.challenge_id = ?
+     ORDER BY h.sort_order ASC, h.id ASC'
+);
+$hintsStmt->execute([$userId, $id]);
+$hintRows = $hintsStmt->fetchAll();
+$netPoints = user_points($userId);
 
 $firstBloodStmt = db()->prepare('SELECT u.username FROM solves s JOIN users u ON u.id=s.user_id WHERE s.challenge_id=? ORDER BY s.solved_at ASC LIMIT 1');
 $firstBloodStmt->execute([$id]);
@@ -42,11 +69,6 @@ $solversStmt->execute([$id]);
 $solverRows = $solversStmt->fetchAll();
 $solverNames = array_map(static fn(array $row): string => (string)$row['username'], $solverRows);
 
-$hintText = '';
-if (is_array($c) && array_key_exists('hint', $c) && trim((string)$c['hint']) !== '') {
-    $hintText = trim((string)$c['hint']);
-}
-
 include __DIR__ . '/header.php';
 ?>
 
@@ -56,22 +78,21 @@ include __DIR__ . '/header.php';
       <div class="card-body p-4">
         <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
           <span class="badge bg-secondary"><?= e((string)$c['category']) ?></span>
-          <span class="badge bg-primary"><?= e((string)$c['points']) ?> pts</span>
+          <span class="badge bg-primary"><?= e((string)$displayPoints) ?> pts</span>
           <span class="badge <?= $solved ? 'bg-success' : 'text-bg-light border text-primary border-primary' ?>"><?= $solved ? 'Solved' : 'Open' ?></span>
         </div>
+
+        <?php if ($scoringType === 'dynamic'): ?>
+          <p class="text-muted small mb-3">
+            Current value updates as solves increase. Started at <?= e((string)$c['initial_points']) ?>, floor <?= e((string)$c['floor_points']) ?>.
+          </p>
+        <?php endif; ?>
 
         <h1 class="page-title mb-3"><?= e((string)$c['title']) ?></h1>
 
         <div class="challenge-description mb-3" style="white-space: pre-wrap;">
           <?= linkify((string)$c['description']) ?>
         </div>
-
-        <?php if ($hintText !== ''): ?>
-          <div class="alert alert-warning mb-3" style="white-space: pre-wrap;">
-            <strong>Hint:</strong><br>
-            <?= linkify($hintText) ?>
-          </div>
-        <?php endif; ?>
 
         <div class="accordion" id="solverAccordion">
           <div class="accordion-item">
@@ -121,6 +142,47 @@ include __DIR__ . '/header.php';
                      href="<?= e(BASE_URL) ?>/download.php?file_id=<?= e((string)$file['id']) ?>&challenge_id=<?= e((string)$id) ?>">
                     Download
                   </a>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <hr>
+        <?php endif; ?>
+
+        <?php if ($hintRows): ?>
+          <div class="mb-3">
+            <h3 class="h6 mb-2">Hints</h3>
+            <div class="vstack gap-2">
+              <?php foreach ($hintRows as $index => $hint): ?>
+                <?php
+                  $hintCost = max(0, (int)($hint['cost'] ?? 0));
+                  $isUnlocked = $solved || !empty($hint['unlock_id']);
+                  $canAfford = ($hintCost <= 0) || ($netPoints >= $hintCost);
+                ?>
+                <div class="border rounded p-2">
+                  <?php if ($isUnlocked): ?>
+                    <div class="alert alert-info mb-0" style="white-space: pre-wrap;">
+                      <strong>Hint #<?= e((string)($index + 1)) ?>:</strong><br>
+                      <?= nl2br(linkify((string)$hint['content']), false) ?>
+                    </div>
+                  <?php else: ?>
+                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                      <div class="text-muted small">
+                        Hint #<?= e((string)($index + 1)) ?> <?= $hintCost > 0 ? ' - costs ' . e((string)$hintCost) . ' points' : ' - free' ?>
+                      </div>
+                      <form method="post" action="<?= e(BASE_URL) ?>/unlock_hint.php" class="m-0">
+                        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                        <input type="hidden" name="hint_id" value="<?= e((string)$hint['id']) ?>">
+                        <input type="hidden" name="challenge_id" value="<?= e((string)$id) ?>">
+                        <button class="btn btn-sm btn-outline-primary" type="submit" <?= $canAfford ? '' : 'disabled' ?>>
+                          <?= $hintCost > 0 ? 'Unlock hint for ' . e((string)$hintCost) . ' pts' : 'Unlock free hint' ?>
+                        </button>
+                      </form>
+                    </div>
+                    <?php if (!$canAfford): ?>
+                      <div class="small text-danger mt-2">Insufficient points to unlock this hint.</div>
+                    <?php endif; ?>
+                  <?php endif; ?>
                 </div>
               <?php endforeach; ?>
             </div>

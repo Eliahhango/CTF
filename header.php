@@ -14,9 +14,37 @@ if ($currentPage === '' || strpos($currentPage, '.php') === false) {
   $currentPage = 'index.php';
 }
 
-$navItems = [];
+$announcementUnread = 0;
+if ($u && ($u['status'] ?? '') === 'active') {
+  try {
+    $lastSeenTs = sanitize_int($_SESSION['last_seen_announcements'] ?? 0, 0, 0);
+    if ($lastSeenTs > 0) {
+      $cutoff = date('Y-m-d H:i:s', $lastSeenTs);
+      $annStmt = db()->prepare('SELECT COUNT(*) FROM announcements WHERE created_at > ?');
+      $annStmt->execute([$cutoff]);
+      $announcementUnread = (int)$annStmt->fetchColumn();
+    } else {
+      $announcementUnread = (int)db()->query('SELECT COUNT(*) FROM announcements')->fetchColumn();
+    }
+  } catch (Throwable $e) {
+    $announcementUnread = 0;
+    if (function_exists('app_log_error')) {
+      app_log_error('announcement unread count failed', ['error' => $e->getMessage()]);
+    }
+  }
+}
+
+$userProfileUrl = '';
+if ($u && isset($u['username'])) {
+  $userProfileUrl = BASE_URL . '/profile.php?username=' . urlencode((string)$u['username']);
+}
+
+$navItems = [
+  ['label' => 'Info', 'path' => '/info.php'],
+];
 if ($u && ($u['status'] ?? '') === 'active') {
   $navItems[] = ['label' => 'Dashboard', 'path' => '/dashboard.php'];
+  $navItems[] = ['label' => 'Announcements', 'path' => '/announcements.php', 'id' => 'navAnnouncements'];
   if (challenges_window_open()) {
     $navItems[] = ['label' => 'Challenges', 'path' => '/challenges.php'];
   }
@@ -133,6 +161,18 @@ if ($now < $startTs) {
     .app-nav-link.active {
       color: #ffffff !important;
       border-bottom-color: var(--primary);
+    }
+
+    .announcement-badge {
+      font-size: .64rem;
+      line-height: 1;
+      vertical-align: middle;
+    }
+
+    .nav-user-toggle {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
     }
 
     .user-badge {
@@ -605,14 +645,26 @@ if ($now < $startTs) {
 
       <div class="collapse navbar-collapse" id="appNav">
         <ul class="navbar-nav ms-lg-4 me-auto">
-          <?php if ($u && ($u['status'] ?? '') === 'active'): ?>
-            <?php foreach ($navItems as $item): ?>
-              <?php $isActive = ($currentPage === basename($item['path'])); ?>
-              <li class="nav-item">
-                <a class="nav-link app-nav-link<?= $isActive ? ' active' : '' ?>" href="<?= e(BASE_URL) . e($item['path']) ?>"><?= e($item['label']) ?></a>
-              </li>
-            <?php endforeach; ?>
-          <?php endif; ?>
+          <?php foreach ($navItems as $item): ?>
+            <?php $isActive = ($currentPage === basename($item['path'])); ?>
+            <li class="nav-item">
+              <a
+                class="nav-link app-nav-link<?= $isActive ? ' active' : '' ?>"
+                href="<?= e(BASE_URL) . e($item['path']) ?>"
+                <?= isset($item['id']) ? 'id="' . e((string)$item['id']) . '"' : '' ?>
+              >
+                <?= e($item['label']) ?>
+                <?php if (($item['id'] ?? '') === 'navAnnouncements'): ?>
+                  <span
+                    id="announcementsUnreadBadge"
+                    class="badge text-bg-danger ms-1 announcement-badge<?= $announcementUnread > 0 ? '' : ' d-none' ?>"
+                  >
+                    <?= e((string)$announcementUnread) ?>
+                  </span>
+                <?php endif; ?>
+              </a>
+            </li>
+          <?php endforeach; ?>
         </ul>
 
         <div class="d-flex align-items-center gap-2 flex-wrap justify-content-lg-end pt-2 pt-lg-0">
@@ -629,8 +681,18 @@ if ($now < $startTs) {
           <?php endif; ?>
 
           <?php if ($u): ?>
-            <span class="user-badge">@<?= e((string)$u['username']) ?></span>
-            <a class="btn btn-sm btn-outline-light" href="<?= e(BASE_URL) ?>/logout.php">Logout</a>
+            <div class="dropdown">
+              <button class="btn btn-sm btn-outline-light dropdown-toggle nav-user-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                @<?= e((string)$u['username']) ?>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><h6 class="dropdown-header">@<?= e((string)$u['username']) ?></h6></li>
+                <li><a class="dropdown-item" href="<?= e($userProfileUrl) ?>">My Profile</a></li>
+                <li><a class="dropdown-item" href="<?= e(BASE_URL) ?>/settings.php">Settings</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="<?= e(BASE_URL) ?>/logout.php">Logout</a></li>
+              </ul>
+            </div>
           <?php else: ?>
             <a class="btn btn-sm btn-outline-light" href="<?= e(BASE_URL) ?>/login.php">Login</a>
             <a class="btn btn-sm btn-primary" href="<?= e(BASE_URL) ?>/register.php">Register</a>
@@ -666,6 +728,11 @@ if ($now < $startTs) {
 (function () {
   const countdown = document.getElementById('challengeCountdown');
   const cdText = document.getElementById('cdText');
+  const announcementsApiUrl = <?= json_encode(
+    ($u && ($u['status'] ?? '') === 'active') ? (BASE_URL . '/api/announcements_count.php') : '',
+    JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+  ) ?>;
+  const announcementsBadge = document.getElementById('announcementsUnreadBadge');
 
   function formatDuration(totalSeconds) {
     const sec = Math.max(0, totalSeconds);
@@ -702,6 +769,43 @@ if ($now < $startTs) {
     }
 
     tick();
+  }
+
+  function updateAnnouncementsBadge(count) {
+    if (!announcementsBadge) return;
+
+    const safeCount = Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+    announcementsBadge.textContent = String(safeCount);
+    announcementsBadge.classList.toggle('d-none', safeCount <= 0);
+  }
+
+  function pollAnnouncementCount() {
+    if (!announcementsApiUrl || !window.fetch) return;
+
+    fetch(announcementsApiUrl, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' },
+      cache: 'no-store',
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error('Announcement count request failed');
+        }
+        return response.json();
+      })
+      .then((payload) => {
+        if (!payload || typeof payload.count === 'undefined') return;
+        const parsed = parseInt(String(payload.count), 10);
+        updateAnnouncementsBadge(Number.isNaN(parsed) ? 0 : parsed);
+      })
+      .catch(() => {
+        // Ignore transient polling failures.
+      });
+  }
+
+  if (announcementsApiUrl) {
+    setInterval(pollAnnouncementCount, 60000);
   }
 
   const flashItems = Array.from(document.querySelectorAll('.flash-alert'));

@@ -9,7 +9,12 @@ if (!challenges_window_open()) {
 
 $u = current_user();
 
-$challs = db()->query("SELECT id,title,category,points FROM challenges WHERE is_active=1 ORDER BY points ASC, id ASC")->fetchAll();
+$challs = db()->query(
+    "SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type
+     FROM challenges
+     WHERE is_active=1
+     ORDER BY points ASC, id ASC"
+)->fetchAll();
 
 $stmt = db()->prepare("SELECT challenge_id FROM solves WHERE user_id=?");
 $stmt->execute([sanitize_int($u['id'] ?? 0)]);
@@ -61,6 +66,16 @@ include __DIR__ . '/header.php';
       $stats = $challengeStats[$cid] ?? ['solve_count' => 0, 'first_blood' => ''];
       $firstBlood = (string)$stats['first_blood'];
       $solveCount = (int)$stats['solve_count'];
+      $scoringType = (string)($c['scoring_type'] ?? 'static');
+      $displayPoints = (int)$c['points'];
+      if ($scoringType === 'dynamic') {
+          $displayPoints = calculate_dynamic_points(
+              (int)($c['initial_points'] ?? 500),
+              (int)($c['floor_points'] ?? 100),
+              (int)($c['decay_solves'] ?? 50),
+              $solveCount + 1
+          );
+      }
     ?>
 
     <div class="col-lg-4 col-md-6" data-category="<?= e($catKey) ?>" data-title="<?= e(strtolower((string)$c['title'])) ?>">
@@ -74,7 +89,12 @@ include __DIR__ . '/header.php';
         <div class="card-body pt-3">
           <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
             <span class="badge bg-secondary"><?= e((string)$c['category']) ?></span>
-            <span class="badge bg-primary"><?= e((string)$c['points']) ?> pts</span>
+            <div class="text-end">
+              <span class="badge bg-primary"><?= e((string)$displayPoints) ?> pts</span>
+              <?php if ($scoringType === 'dynamic'): ?>
+                <div class="text-muted small mt-1">decays with solves</div>
+              <?php endif; ?>
+            </div>
           </div>
 
           <h3 class="challenge-title"><?= e((string)$c['title']) ?></h3>
