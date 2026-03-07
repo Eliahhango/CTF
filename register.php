@@ -30,48 +30,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include __DIR__ . '/header.php';
 ?>
 
-<section class="auth-shell">
-  <div class="auth-terminal-card">
-    <div class="terminal-window-head mb-3">
-      <span class="dot-red"></span>
-      <span class="dot-amber"></span>
-      <span class="dot-green"></span>
-      <span class="small muted-cyber ms-2">auth@register-node:~</span>
+<section class="auth-screen">
+  <div class="container-fluid px-0">
+    <div class="row justify-content-center">
+      <div class="col-lg-5 col-md-7">
+        <div class="auth-shell-wrap box-glow">
+          <div class="auth-titlebar"><span class="balls">[ &#9679; &#9679; &#9679; ]</span>auth@cyberclub:~$ <span class="blink"></span></div>
+
+          <h2 class="h5 mb-3">Register Operator</h2>
+
+          <form method="post">
+            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+
+            <div class="mb-3">
+              <label class="prompt-label" for="username">Username</label>
+              <input id="username" class="form-control" name="username" required placeholder="3-20 chars (letters, numbers, underscore)">
+              <div class="form-text">Example: <code>z3r0trac3</code></div>
+            </div>
+
+            <div class="mb-3">
+              <label class="prompt-label" for="email">Email</label>
+              <input id="email" class="form-control" name="email" type="email" required placeholder="name@example.com">
+            </div>
+
+            <div class="mb-4">
+              <label class="prompt-label" for="password">Password</label>
+              <input id="password" class="form-control" name="password" type="password" required placeholder="minimum <?= PASSWORD_MIN_LEN ?> chars">
+            </div>
+
+            <button class="btn auth-submit w-100" type="submit">Create Account</button>
+
+            <div class="mt-3 small text-muted">
+              Existing operator? <a href="<?= e(BASE_URL) ?>/login.php">./login</a>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
-
-    <h2 class="h4 mb-2">Create Account</h2>
-    <p class="small muted-cyber mb-4">
-      New operators enter pending review until approved by an instructor.
-    </p>
-
-    <form method="post">
-      <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-
-      <div class="mb-3 field-line">
-        <label class="shell-label" for="username">username:</label>
-        <input id="username" class="form-control terminal-input" name="username" required placeholder="3-20 chars: letters, numbers, underscore">
-        <div class="form-text">Example: <code>z3r0trac3</code></div>
-      </div>
-
-      <div class="mb-3 field-line">
-        <label class="shell-label" for="email">email:</label>
-        <input id="email" class="form-control terminal-input" name="email" type="email" required placeholder="name@example.com">
-      </div>
-
-      <div class="mb-4 field-line">
-        <label class="shell-label" for="password">password:</label>
-        <input id="password" class="form-control terminal-input" name="password" type="password" required placeholder="min <?= PASSWORD_MIN_LEN ?> chars">
-        <div class="form-text">Minimum length: <?= PASSWORD_MIN_LEN ?></div>
-      </div>
-
-      <button class="btn btn-command w-100" type="submit">
-        <span class="prompt">$</span> ./register --init-profile
-      </button>
-
-      <div class="mt-3 small muted-cyber">
-        Already onboarded? <a href="<?= e(BASE_URL) ?>/login.php">./login</a>
-      </div>
-    </form>
   </div>
 </section>
 

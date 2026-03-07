@@ -63,72 +63,58 @@ $challs = $pdo->query("SELECT id,title,category,points,is_active,created_at FROM
 include __DIR__ . '/header.php';
 ?>
 
-<div class="card mb-4">
-  <div class="card-body">
-    <div class="terminal-window-head mb-3">
-      <span class="dot-red"></span>
-      <span class="dot-amber"></span>
-      <span class="dot-green"></span>
-      <span class="small muted-cyber ms-2">root@admin-challenges:~</span>
-    </div>
-
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-      <div>
-        <h2 class="h4 mb-2">Manage Challenges</h2>
-        <p class="small muted-cyber mb-0">Create, edit, activate, or deactivate challenge records.</p>
-      </div>
-      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/admin.php">./back</a>
-    </div>
+<div class="term-block mb-3">
+  <h2 class="section-head mb-2">// CHALLENGE_CONTROL</h2>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span class="small text-muted">Create, edit, activate, and retire challenge entries.</span>
+    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/admin.php">Back</a>
   </div>
 </div>
 
 <div class="row g-3">
   <div class="col-lg-5">
-    <div class="card h-100">
-      <div class="card-body">
-        <h3 class="h6 mb-3">Create Challenge</h3>
-        <form method="post">
-          <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-          <input type="hidden" name="action" value="create">
+    <div class="term-block h-100">
+      <h3 class="section-head">// CREATE_CHALLENGE</h3>
+      <form method="post">
+        <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+        <input type="hidden" name="action" value="create">
 
-          <div class="mb-2">
-            <label class="form-label">Title</label>
-            <input class="form-control" name="title" required>
-          </div>
+        <div class="mb-3">
+          <label class="prompt-label">Title</label>
+          <input class="form-control" name="title" required>
+        </div>
 
-          <div class="mb-2">
-            <label class="form-label">Category</label>
-            <input class="form-control" name="category" required>
-          </div>
+        <div class="mb-3">
+          <label class="prompt-label">Category</label>
+          <input class="form-control" name="category" required>
+        </div>
 
-          <div class="mb-2">
-            <label class="form-label">Points</label>
-            <input class="form-control" name="points" type="number" min="1" value="100" required>
-          </div>
+        <div class="mb-3">
+          <label class="prompt-label">Points</label>
+          <input class="form-control" name="points" type="number" min="1" value="100" required>
+        </div>
 
-          <div class="mb-2">
-            <label class="form-label">Description</label>
-            <textarea class="form-control" name="description" rows="6" required></textarea>
-          </div>
+        <div class="mb-3">
+          <label class="prompt-label">Description</label>
+          <textarea class="form-control" name="description" rows="6" required></textarea>
+        </div>
 
-          <div class="mb-3">
-            <label class="form-label">Flag (hashed)</label>
-            <input class="form-control" name="flag" required placeholder="ccd{...}">
-          </div>
+        <div class="mb-3">
+          <label class="prompt-label">Flag</label>
+          <input class="form-control" name="flag" required placeholder="ccd{...}">
+        </div>
 
-          <button class="btn btn-warning" type="submit">Create</button>
-        </form>
-      </div>
+        <button class="btn btn-amber" type="submit">Create</button>
+      </form>
     </div>
   </div>
 
   <div class="col-lg-7">
     <div class="card h-100">
       <div class="card-body">
-        <h3 class="h6 mb-3">Existing Challenges</h3>
-
+        <h3 class="section-head">// CHALLENGE_TABLE</h3>
         <div class="table-responsive">
-          <table class="table table-sm align-middle">
+          <table class="table align-middle">
             <thead>
               <tr>
                 <th>ID</th>
@@ -147,25 +133,23 @@ include __DIR__ . '/header.php';
                   <td><?= e($c['category']) ?></td>
                   <td><?= e((string)$c['points']) ?></td>
                   <td>
-                    <span class="badge text-bg-<?= $c['is_active']?'success':'secondary' ?>">
-                      <?= $c['is_active']?'active':'inactive' ?>
-                    </span>
+                    <span class="badge text-bg-<?= $c['is_active']?'success':'secondary' ?>"><?= $c['is_active']?'active':'inactive' ?></span>
                   </td>
                   <td class="text-nowrap">
                     <form method="post" class="d-inline">
                       <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
                       <input type="hidden" name="action" value="toggle">
                       <input type="hidden" name="id" value="<?= e((string)$c['id']) ?>">
-                      <button class="btn btn-sm btn-outline-secondary" type="submit">Toggle</button>
+                      <button class="btn btn-sm btn-cyan" type="submit">Toggle</button>
                     </form>
 
-                    <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#edit<?= e((string)$c['id']) ?>">Edit</button>
+                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#edit<?= e((string)$c['id']) ?>">Edit</button>
 
                     <form method="post" class="d-inline" onsubmit="return confirm('Deactivate this challenge?')">
                       <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
                       <input type="hidden" name="action" value="delete">
                       <input type="hidden" name="id" value="<?= e((string)$c['id']) ?>">
-                      <button class="btn btn-sm btn-danger" type="submit">Deactivate</button>
+                      <button class="btn btn-sm btn-red" type="submit">Deactivate</button>
                     </form>
                   </td>
                 </tr>
@@ -184,32 +168,32 @@ include __DIR__ . '/header.php';
                           <input type="hidden" name="action" value="update">
                           <input type="hidden" name="id" value="<?= e((string)$full['id']) ?>">
 
-                          <div class="mb-2">
-                            <label class="form-label">Title</label>
+                          <div class="mb-3">
+                            <label class="prompt-label">Title</label>
                             <input class="form-control" name="title" value="<?= e($full['title']) ?>" required>
                           </div>
 
-                          <div class="mb-2">
-                            <label class="form-label">Category</label>
+                          <div class="mb-3">
+                            <label class="prompt-label">Category</label>
                             <input class="form-control" name="category" value="<?= e($full['category']) ?>" required>
                           </div>
 
-                          <div class="mb-2">
-                            <label class="form-label">Points</label>
+                          <div class="mb-3">
+                            <label class="prompt-label">Points</label>
                             <input class="form-control" name="points" type="number" min="1" value="<?= e((string)$full['points']) ?>" required>
                           </div>
 
-                          <div class="mb-2">
-                            <label class="form-label">Description</label>
+                          <div class="mb-3">
+                            <label class="prompt-label">Description</label>
                             <textarea class="form-control" name="description" rows="8" required><?= e($full['description']) ?></textarea>
                           </div>
 
                           <div class="mb-3">
-                            <label class="form-label">New Flag (optional)</label>
+                            <label class="prompt-label">New Flag (optional)</label>
                             <input class="form-control" name="flag" placeholder="leave empty to keep">
                           </div>
 
-                          <button class="btn btn-primary" type="submit">Save</button>
+                          <button class="btn btn-green" type="submit">Save</button>
                         </form>
                       </div>
                     </div>

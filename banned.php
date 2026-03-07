@@ -5,20 +5,15 @@ require_login();
 include __DIR__ . '/header.php';
 ?>
 
-<div class="card">
-  <div class="card-body">
-    <div class="terminal-window-head mb-3">
-      <span class="dot-red"></span>
-      <span class="dot-amber"></span>
-      <span class="dot-green"></span>
-      <span class="small muted-cyber ms-2">account@restricted:~</span>
-    </div>
-
-    <h2 class="h4 mb-3">Account Banned</h2>
-    <p class="mb-2">Your account has been banned due to suspicious activity.</p>
-    <p class="mb-2 muted-cyber">If this is a mistake, contact the instructor to request manual review.</p>
-    <p class="mb-0 muted-cyber">Hack to Secure the World.</p>
+<section class="status-screen">
+  <div class="status-box status-banned">
+    <pre class="status-ascii">  /!\\
+ ( x_x )
+  /_|_\\</pre>
+    <h1 class="status-title">[ ACCESS DENIED ]</h1>
+    <p class="status-sub mb-2">THIS ACCOUNT HAS BEEN TERMINATED</p>
+    <p class="small text-muted mb-0">Contact the instructor if you believe this action was applied in error.</p>
   </div>
-</div>
+</section>
 
 <?php include __DIR__ . '/footer.php'; ?>

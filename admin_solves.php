@@ -15,44 +15,33 @@ LIMIT 300
 include __DIR__ . '/header.php';
 ?>
 
-<div class="card mb-4">
-  <div class="card-body">
-    <div class="terminal-window-head mb-3">
-      <span class="dot-red"></span>
-      <span class="dot-amber"></span>
-      <span class="dot-green"></span>
-      <span class="small muted-cyber ms-2">root@admin-solves:~</span>
-    </div>
-
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-      <div>
-        <h2 class="h4 mb-2">Solves Log</h2>
-        <p class="small muted-cyber mb-0">Latest 300 solve events across all active users.</p>
-      </div>
-      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/admin.php">./back</a>
-    </div>
+<div class="term-block mb-3">
+  <h2 class="section-head mb-2">// SOLVES_LOG</h2>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span class="small text-muted">Latest 300 solve events across active operators.</span>
+    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/admin.php">Back</a>
   </div>
 </div>
 
 <div class="card">
   <div class="card-body">
     <div class="table-responsive">
-      <table class="table table-sm align-middle">
+      <table class="table align-middle">
         <thead>
           <tr>
-            <th style="width: 190px;">Time</th>
+            <th style="width: 200px;">Time</th>
             <th>User</th>
             <th>Challenge</th>
-            <th style="width: 90px;" class="text-end">Points</th>
+            <th style="width: 110px;" class="text-end">Points</th>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($rows as $r): ?>
             <tr>
-              <td class="small"><?= e($r['solved_at']) ?></td>
-              <td class="fw-semibold"><?= e($r['username']) ?></td>
+              <td><?= e($r['solved_at']) ?></td>
+              <td class="score-user">@<?= e($r['username']) ?></td>
               <td><?= e($r['title']) ?></td>
-              <td class="text-end fw-bold"><?= e((string)$r['points_awarded']) ?></td>
+              <td class="text-end score-points"><?= e((string)$r['points_awarded']) ?></td>
             </tr>
           <?php endforeach; ?>
         </tbody>

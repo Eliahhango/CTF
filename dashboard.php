@@ -11,101 +11,94 @@ $stmt = db()->prepare("SELECT s.solved_at, c.title, c.points FROM solves s JOIN 
 $stmt->execute([(int)$u['id']]);
 $recent = $stmt->fetchAll();
 
-$barWidth = 12;
-$filled = min($barWidth, max(0, (int)$solved));
-$empty = $barWidth - $filled;
-$progressBar = '[' . str_repeat('&#9608;', $filled) . str_repeat('&#9617;', $empty) . ']';
+$totalChallenges = (int)db()->query("SELECT COUNT(*) FROM challenges WHERE is_active=1")->fetchColumn();
+$remaining = max(0, $totalChallenges - $solved);
+$completionPct = $totalChallenges > 0 ? (int)floor(($solved / $totalChallenges) * 100) : 0;
+$slots = 16;
+$filled = min($slots, max(0, (int)round(($completionPct / 100) * $slots)));
+$asciiBar = '[' . str_repeat('&#9608;', $filled) . str_repeat('&#9617;', $slots - $filled) . ']';
+
+$rank = 0;
+if (($u['role'] ?? '') === 'user') {
+  $rankRows = db()->query("SELECT u.id, COALESCE(SUM(s.points_awarded),0) AS points, MAX(s.solved_at) AS last_solve FROM users u LEFT JOIN solves s ON s.user_id=u.id WHERE u.status='active' AND u.role='user' GROUP BY u.id ORDER BY points DESC, last_solve ASC")->fetchAll();
+  $idx = 1;
+  foreach ($rankRows as $row) {
+    if ((int)$row['id'] === (int)$u['id']) {
+      $rank = $idx;
+      break;
+    }
+    $idx++;
+  }
+}
 
 include __DIR__ . '/header.php';
 ?>
 
-<div class="card mb-4">
+<div class="dashboard-header box-glow">
+  <h2 class="operator-name">OPERATOR: @<?= e($u['username'] ?? 'unknown') ?></h2>
+  <div class="operator-meta">
+    <span class="rank-badge glow-amber">RANK: <?= $rank > 0 ? '#' . e((string)$rank) : 'N/A' ?></span>
+    <span class="point-badge glow-green">POINTS: <?= e((string)$points) ?></span>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card stat-points">
+    <div class="label">Points</div>
+    <div class="value glow-green"><?= e((string)$points) ?></div>
+  </div>
+
+  <div class="stat-card stat-solved">
+    <div class="label">Solved</div>
+    <div class="value glow-cyan"><?= e((string)$solved) ?></div>
+  </div>
+
+  <div class="stat-card stat-rank">
+    <div class="label">Rank</div>
+    <div class="value glow-amber"><?= $rank > 0 ? e((string)$rank) : '--' ?></div>
+  </div>
+
+  <div class="stat-card stat-remain">
+    <div class="label">Remaining</div>
+    <div class="value"><?= e((string)$remaining) ?></div>
+  </div>
+</div>
+
+<div class="progress-shell">
+  <div class="progress-label">Completion</div>
+  <div class="progress-line"><?= $asciiBar ?> <?= e((string)$completionPct) ?>%</div>
+</div>
+
+<div class="card">
   <div class="card-body">
-    <div class="terminal-window-head mb-3">
-      <span class="dot-red"></span>
-      <span class="dot-amber"></span>
-      <span class="dot-green"></span>
-      <span class="small muted-cyber ms-2">ops@dashboard:~</span>
-    </div>
+    <h3 class="section-head">// RECENT_SOLVES</h3>
 
-    <h2 class="h4 mb-2">Dashboard</h2>
-    <p class="small muted-cyber mb-0">
-      Session owner: <?= e($u['username'] ?? 'user') ?> | Status: <?= e($u['status'] ?? 'active') ?>
-    </p>
-  </div>
-</div>
-
-<div class="row g-3 mb-3">
-  <div class="col-md-4">
-    <div class="stat-box">
-      <div class="stat-label">Total Points</div>
-      <div class="stat-value"><?= e((string)$points) ?></div>
-    </div>
-  </div>
-
-  <div class="col-md-4">
-    <div class="stat-box">
-      <div class="stat-label">Challenges Solved</div>
-      <div class="stat-value"><?= e((string)$solved) ?></div>
-    </div>
-  </div>
-
-  <div class="col-md-4">
-    <div class="stat-box">
-      <div class="stat-label">Progress Buffer</div>
-      <p class="ascii-progress mb-1"><?= $progressBar ?></p>
-      <div class="small muted-cyber">Auto-scales at 12 blocks</div>
-    </div>
-  </div>
-</div>
-
-<div class="row g-3">
-  <div class="col-lg-4">
-    <div class="card h-100">
-      <div class="card-body">
-        <h3 class="h6 mb-3">Control</h3>
-        <div class="d-grid gap-2">
-          <a href="<?= e(BASE_URL) ?>/challenges.php" class="btn btn-primary">./challenges</a>
-          <a href="<?= e(BASE_URL) ?>/leaderboard.php" class="btn btn-outline-secondary">./leaderboard</a>
-        </div>
+    <?php if (!$recent): ?>
+      <div class="alert alert-info mb-0">No solves yet. Open a challenge and submit your first flag.</div>
+    <?php else: ?>
+      <div class="table-responsive">
+        <table class="table recent-solve-table align-middle">
+          <thead>
+            <tr>
+              <th style="width:72px;">State</th>
+              <th style="width:190px;">Time</th>
+              <th>Challenge</th>
+              <th style="width:100px;" class="text-end">Points</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($recent as $r): ?>
+              <tr>
+                <td><span class="solve-yes">&#10003;</span></td>
+                <td><?= e($r['solved_at']) ?></td>
+                <td><?= e($r['title']) ?></td>
+                <td class="text-end"><?= e((string)$r['points']) ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
       </div>
-    </div>
-  </div>
-
-  <div class="col-lg-8">
-    <div class="card h-100">
-      <div class="card-body">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <h3 class="h6 mb-0">Recent Solves</h3>
-          <span class="small muted-cyber">latest 10 entries</span>
-        </div>
-
-        <?php if (!$recent): ?>
-          <div class="alert alert-info mb-0">No solves yet. Start with low-point challenges.</div>
-        <?php else: ?>
-          <div class="table-responsive">
-            <table class="table table-sm align-middle">
-              <thead>
-                <tr>
-                  <th style="width: 190px;">Time</th>
-                  <th>Challenge</th>
-                  <th style="width: 90px;" class="text-end">Points</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php foreach ($recent as $r): ?>
-                  <tr>
-                    <td class="small"><?= e($r['solved_at']) ?></td>
-                    <td class="fw-semibold"><?= e($r['title']) ?></td>
-                    <td class="text-end fw-bold"><?= e((string)$r['points']) ?></td>
-                  </tr>
-                <?php endforeach; ?>
-              </tbody>
-            </table>
-          </div>
-        <?php endif; ?>
-      </div>
-    </div>
+    <?php endif; ?>
   </div>
 </div>
 

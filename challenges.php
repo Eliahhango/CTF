@@ -16,29 +16,27 @@ $stmt = db()->prepare("SELECT challenge_id FROM solves WHERE user_id=?");
 $stmt->execute([(int)$u['id']]);
 $solved_ids = array_flip(array_map(fn($x)=>(int)$x['challenge_id'], $stmt->fetchAll()));
 
-/* Build category list for filter dropdown */
 $categories = array_values(array_unique(array_map(fn($c) => (string)$c['category'], $challs)));
 sort($categories, SORT_NATURAL | SORT_FLAG_CASE);
 
 include __DIR__ . '/header.php';
 ?>
 
-<div class="challenge-controls">
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <div>
-    <h2 class="h4 mb-1">Challenges</h2>
-    <div class="text-muted small">Filter by category and open challenge terminals.</div>
+    <h2 class="h5 mb-1">Challenges</h2>
+    <div class="small text-muted">Top operators classify targets before exploitation.</div>
   </div>
+  <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/leaderboard.php">[ LEADERBOARD ]</a>
+</div>
 
-  <div class="d-flex gap-2 align-items-center">
-    <select id="catFilter" class="form-select form-select-sm" style="max-width: 240px;">
-      <option value="__all__">All Categories</option>
-      <?php foreach ($categories as $cat): ?>
-        <option value="<?= e($cat) ?>"><?= e($cat) ?></option>
-      <?php endforeach; ?>
-    </select>
-
-    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/leaderboard.php">./leaderboard</a>
-  </div>
+<div class="filter-tabs" id="challengeTabs">
+  <button type="button" class="filter-tab active" data-filter="all">[ ALL ]</button>
+  <button type="button" class="filter-tab" data-filter="web">[ WEB ]</button>
+  <button type="button" class="filter-tab" data-filter="crypto">[ CRYPTO ]</button>
+  <button type="button" class="filter-tab" data-filter="forensics">[ FORENSICS ]</button>
+  <button type="button" class="filter-tab" data-filter="pwn">[ PWN ]</button>
+  <button type="button" class="filter-tab" data-filter="linux">[ LINUX ]</button>
 </div>
 
 <div class="challenge-grid" id="challengeGrid">
@@ -47,48 +45,47 @@ include __DIR__ . '/header.php';
       $cid = (int)$c['id'];
       $solved = isset($solved_ids[$cid]);
       $locked = false;
+      $catRaw = strtolower(trim((string)$c['category']));
 
-      $cat = strtolower(trim((string)$c['category']));
-      if ($cat === 'web') {
-        $catClass = 'cat-web';
-      } elseif ($cat === 'forensics') {
-        $catClass = 'cat-forensics';
-      } elseif ($cat === 'crypto') {
-        $catClass = 'cat-crypto';
-      } elseif ($cat === 'pwn') {
-        $catClass = 'cat-pwn';
+      if (strpos($catRaw, 'web') !== false) {
+        $catKey = 'web';
+      } elseif (strpos($catRaw, 'crypto') !== false) {
+        $catKey = 'crypto';
+      } elseif (strpos($catRaw, 'forensic') !== false) {
+        $catKey = 'forensics';
+      } elseif (strpos($catRaw, 'pwn') !== false) {
+        $catKey = 'pwn';
+      } elseif (strpos($catRaw, 'linux') !== false) {
+        $catKey = 'linux';
       } else {
-        $catClass = 'cat-default';
+        $catKey = 'default';
       }
 
-      if ($locked) {
-        $statusClass = 'status-locked';
-        $statusLabel = '[LOCKED]';
-      } elseif ($solved) {
-        $statusClass = 'status-solved';
-        $statusLabel = '[SOLVED ✓]';
-      } else {
-        $statusClass = 'status-open';
-        $statusLabel = '[OPEN]';
-      }
+      $stripClass = 'strip-' . $catKey;
+      $catClass = 'cat-' . $catKey;
     ?>
 
-    <article class="challenge-card" data-category="<?= e((string)$c['category']) ?>" data-points="<?= e((string)$c['points']) ?>">
-      <div class="terminal-window-head d-flex justify-content-between align-items-center">
-        <div>
-          <span class="dot-red"></span>
-          <span class="dot-amber"></span>
-          <span class="dot-green"></span>
-        </div>
-        <span class="cat-tag <?= e($catClass) ?>"><?= e($c['category']) ?></span>
+    <article class="challenge-item" data-category="<?= e($catKey) ?>">
+      <div class="challenge-strip <?= e($stripClass) ?>"></div>
+
+      <div class="d-flex justify-content-between align-items-center">
+        <span class="small text-muted terminal-mono">TARGET</span>
+        <span class="challenge-cat <?= e($catClass) ?>"><?= e($c['category']) ?></span>
       </div>
 
       <h3 class="challenge-title"><?= e($c['title']) ?></h3>
-      <div class="challenge-points">[<?= e((string)$c['points']) ?> pts]</div>
+      <div class="challenge-points">[ <?= e((string)$c['points']) ?> ]</div>
 
       <div class="d-flex justify-content-between align-items-center gap-2">
-        <span class="status-badge <?= e($statusClass) ?>"><?= e($statusLabel) ?></span>
-        <a class="btn btn-sm btn-outline-light" href="<?= e(BASE_URL) ?>/challenge.php?id=<?= e((string)$cid) ?>">./open</a>
+        <?php if ($locked): ?>
+          <span class="challenge-status status-locked">[ LOCKED ]</span>
+        <?php elseif ($solved): ?>
+          <span class="challenge-status status-solved">[ PWNED &#10003; ]</span>
+        <?php else: ?>
+          <span class="challenge-status status-open">[ OPEN ]</span>
+        <?php endif; ?>
+
+        <a class="btn btn-sm btn-outline-light" href="<?= e(BASE_URL) ?>/challenge.php?id=<?= e((string)$cid) ?>">OPEN</a>
       </div>
     </article>
   <?php endforeach; ?>
@@ -100,21 +97,27 @@ include __DIR__ . '/header.php';
 
 <script>
 (function () {
-  const sel = document.getElementById('catFilter');
-  if (!sel) return;
+  const tabs = Array.from(document.querySelectorAll('#challengeTabs .filter-tab'));
+  const cards = Array.from(document.querySelectorAll('#challengeGrid .challenge-item'));
 
-  const cards = Array.from(document.querySelectorAll('#challengeGrid .challenge-card'));
+  if (!tabs.length) return;
 
-  function applyFilter() {
-    const value = sel.value;
+  function applyFilter(filterKey) {
     cards.forEach((card) => {
-      const cat = card.getAttribute('data-category') || '';
-      card.style.display = (value === '__all__' || cat === value) ? '' : 'none';
+      const key = card.getAttribute('data-category') || 'default';
+      card.style.display = (filterKey === 'all' || key === filterKey) ? '' : 'none';
     });
   }
 
-  sel.addEventListener('change', applyFilter);
-  applyFilter();
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      tabs.forEach((x) => x.classList.remove('active'));
+      tab.classList.add('active');
+      applyFilter(tab.dataset.filter || 'all');
+    });
+  });
+
+  applyFilter('all');
 })();
 </script>
 

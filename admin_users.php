@@ -20,34 +20,18 @@ $users = db()->query("SELECT id,username,email,role,status,created_at FROM users
 include __DIR__ . '/header.php';
 ?>
 
-<div class="card mb-4">
-  <div class="card-body">
-    <div class="terminal-window-head mb-3">
-      <span class="dot-red"></span>
-      <span class="dot-amber"></span>
-      <span class="dot-green"></span>
-      <span class="small muted-cyber ms-2">root@admin-users:~</span>
-    </div>
-
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-      <div>
-        <h2 class="h4 mb-2">Manage Users</h2>
-        <p class="small muted-cyber mb-0">Approve pending users, ban accounts, or restore access.</p>
-      </div>
-      <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/admin.php">./back</a>
-    </div>
+<div class="term-block mb-3">
+  <h2 class="section-head mb-2">// USER_MANAGEMENT</h2>
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <span class="small text-muted">Approve, ban, or restore operator accounts.</span>
+    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/admin.php">Back</a>
   </div>
 </div>
 
 <div class="card">
   <div class="card-body">
-    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
-      <h3 class="h6 mb-0">User Table</h3>
-      <span class="small muted-cyber"><?= e((string)count($users)) ?> records</span>
-    </div>
-
     <div class="table-responsive">
-      <table class="table table-sm align-middle mb-0">
+      <table class="table align-middle">
         <thead>
           <tr>
             <th>User</th>
@@ -55,21 +39,21 @@ include __DIR__ . '/header.php';
             <th style="width: 100px;">Role</th>
             <th style="width: 120px;">Status</th>
             <th style="width: 190px;">Created</th>
-            <th style="width: 160px;" class="text-end">Action</th>
+            <th style="width: 180px;" class="text-end">Action</th>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($users as $x): ?>
             <tr>
-              <td class="fw-semibold"><?= e($x['username']) ?></td>
-              <td class="small"><?= e($x['email']) ?></td>
+              <td class="score-user">@<?= e($x['username']) ?></td>
+              <td><?= e($x['email']) ?></td>
               <td><?= e($x['role']) ?></td>
               <td>
                 <span class="badge text-bg-<?= $x['status']==='active'?'success':($x['status']==='pending'?'warning':'danger') ?>">
                   <?= e($x['status']) ?>
                 </span>
               </td>
-              <td class="small"><?= e($x['created_at']) ?></td>
+              <td><?= e($x['created_at']) ?></td>
               <td class="text-end">
                 <?php if ($x['role']==='admin'): ?>
                   <span class="text-muted">N/A</span>
@@ -79,11 +63,11 @@ include __DIR__ . '/header.php';
                     <input type="hidden" name="user_id" value="<?= e((string)$x['id']) ?>">
 
                     <?php if ($x['status']==='pending'): ?>
-                      <button class="btn btn-sm btn-primary" name="action" value="approve">Approve</button>
+                      <button class="btn btn-sm btn-green" name="action" value="approve">Approve</button>
                     <?php elseif ($x['status']==='active'): ?>
-                      <button class="btn btn-sm btn-danger" name="action" value="ban">Ban</button>
+                      <button class="btn btn-sm btn-red" name="action" value="ban">Ban</button>
                     <?php else: ?>
-                      <button class="btn btn-sm btn-success" name="action" value="unban">Unban</button>
+                      <button class="btn btn-sm btn-cyan" name="action" value="unban">Unban</button>
                     <?php endif; ?>
                   </form>
                 <?php endif; ?>

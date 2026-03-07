@@ -6,19 +6,13 @@ include __DIR__ . '/header.php';
 http_response_code(403);
 ?>
 
-<div class="card">
-  <div class="card-body">
-    <div class="terminal-window-head mb-3">
-      <span class="dot-red"></span>
-      <span class="dot-amber"></span>
-      <span class="dot-green"></span>
-      <span class="small muted-cyber ms-2">security@forbidden:~</span>
-    </div>
-
-    <h2 class="h4 mb-3">403 Forbidden</h2>
-    <p class="mb-2">Challenges are currently locked.</p>
-    <p class="mb-0 muted-cyber">Wait for the instructor to open the competition window.</p>
+<section class="status-screen">
+  <div class="status-box status-403">
+    <h1 class="status-title">[ 403 ]</h1>
+    <p class="status-sub mb-2">UNAUTHORIZED ACCESS ATTEMPT LOGGED</p>
+    <p class="small text-muted mb-1">Challenges are currently locked.</p>
+    <p class="small text-muted mb-0">Your IP has been recorded.</p>
   </div>
-</div>
+</section>
 
 <?php include __DIR__ . '/footer.php'; ?>

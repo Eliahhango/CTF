@@ -5,20 +5,12 @@ require_login();
 include __DIR__ . '/header.php';
 ?>
 
-<div class="card">
-  <div class="card-body">
-    <div class="terminal-window-head mb-3">
-      <span class="dot-red"></span>
-      <span class="dot-amber"></span>
-      <span class="dot-green"></span>
-      <span class="small muted-cyber ms-2">account@pending-review:~</span>
-    </div>
-
-    <h2 class="h4 mb-3">Account Pending Approval</h2>
-    <p class="mb-2 muted-cyber">Your instructor must approve your account before challenge access is enabled.</p>
-    <p class="mb-2 muted-cyber">Confirm you are a DIT student and Cyber Club DIT member.</p>
-    <p class="mb-0 muted-cyber">If this status persists, contact your instructor for verification.</p>
+<section class="status-screen">
+  <div class="status-box status-pending">
+    <h1 class="status-title">[ PENDING ]</h1>
+    <p class="status-sub mb-2">ACCESS REQUEST QUEUED - AWAITING OPERATOR APPROVAL</p>
+    <p class="small text-muted mb-0">Your instructor must approve your account before challenge access is enabled.</p>
   </div>
-</div>
+</section>
 
 <?php include __DIR__ . '/footer.php'; ?>

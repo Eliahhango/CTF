@@ -39,41 +39,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include __DIR__ . '/header.php';
 ?>
 
-<section class="auth-shell">
-  <div class="auth-terminal-card">
-    <div class="terminal-window-head mb-3">
-      <span class="dot-red"></span>
-      <span class="dot-amber"></span>
-      <span class="dot-green"></span>
-      <span class="small muted-cyber ms-2">auth@login-node:~</span>
+<section class="auth-screen">
+  <div class="container-fluid px-0">
+    <div class="row g-4 justify-content-center align-items-stretch">
+      <div class="col-lg-5 col-md-7">
+        <div class="auth-shell-wrap box-glow">
+          <div class="auth-titlebar"><span class="balls">[ &#9679; &#9679; &#9679; ]</span>auth@cyberclub:~$ <span class="blink"></span></div>
+
+          <h2 class="h5 mb-3">Operator Login</h2>
+
+          <form method="post">
+            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+
+            <div class="mb-3">
+              <label class="prompt-label" for="username">Username or Email</label>
+              <input id="username" class="form-control" name="username" required placeholder="operator@domain or username">
+            </div>
+
+            <div class="mb-4">
+              <label class="prompt-label" for="password">Password</label>
+              <input id="password" class="form-control" name="password" type="password" required placeholder="********">
+            </div>
+
+            <button class="btn auth-submit w-100" type="submit">Authenticate</button>
+
+            <div class="mt-3 small text-muted">
+              New operator? <a href="<?= e(BASE_URL) ?>/register.php">./register</a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <div class="col-lg-4 d-none d-lg-block">
+        <div class="term-block auth-policy h-100">
+          <div class="policy-line"><span class="shell">$</span>policy -> 3 failed logins = 3 minute lock</div>
+          <div class="policy-line"><span class="shell">$</span>status -> pending accounts need approval</div>
+          <div class="policy-line"><span class="shell">$</span>rule -> one account per operator</div>
+          <div class="policy-line"><span class="shell">$</span>hint -> verify domain before typing credentials</div>
+          <div class="policy-line"><span class="shell">$</span>motto -> hack_to_secure_the_world</div>
+        </div>
+      </div>
     </div>
-
-    <h2 class="h4 mb-2">Login</h2>
-    <p class="small muted-cyber mb-4">
-      Authenticate to continue. Failed attempts trigger temporary lockout.
-    </p>
-
-    <form method="post">
-      <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-
-      <div class="mb-3 field-line">
-        <label class="shell-label" for="username">username_or_email:</label>
-        <input id="username" class="form-control terminal-input" name="username" required placeholder="operator@domain or username">
-      </div>
-
-      <div class="mb-4 field-line">
-        <label class="shell-label" for="password">password:</label>
-        <input id="password" class="form-control terminal-input" name="password" type="password" required placeholder="********">
-      </div>
-
-      <button class="btn btn-command w-100" type="submit">
-        <span class="prompt">$</span> ./authenticate
-      </button>
-
-      <div class="mt-3 small muted-cyber">
-        No account yet? <a href="<?= e(BASE_URL) ?>/register.php">./register</a>
-      </div>
-    </form>
   </div>
 </section>
 
