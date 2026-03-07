@@ -2,15 +2,15 @@
 // config.php
 
 // DATABASE
-define('DB_HOST', 'sql208.infinityfree.com');
+define('DB_HOST', 'localhost');
 define('DB_NAME', 'if0_41083503_ctf_ccd');
-define('DB_USER', 'if0_41083503');
-define('DB_PASS', 'iAub2hHJTOLg');
+define('DB_USER', 'root');
+define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
 // APP
 define('APP_NAME', 'Cyber Club DIT CTF');
-define('BASE_URL', ''); // '' for root, or '/ctf' if hosted in a subfolder
+define('BASE_URL', '/ccd'); // '' for root, or '/ctf' if hosted in a subfolder
 define('SESSION_NAME', 'ctf_session');
 
 // SECURITY
@@ -25,4 +25,3 @@ define('APP_TIMEZONE', 'Africa/Dar_es_Salaam');
 define('CHALLENGES_OPEN_AT', '2026-02-27 21:10:00');
 
 define('CHALLENGES_CLOSE_AT', '2026-03-01 21:00:00'); // end time
-
