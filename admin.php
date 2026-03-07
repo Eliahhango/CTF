@@ -11,25 +11,53 @@ $solves = (int)db()->query("SELECT COUNT(*) FROM solves")->fetchColumn();
 include __DIR__ . '/header.php';
 ?>
 
-<div class="admin-banner">
-  <span class="dot-danger"></span>
-  <span>// ADMIN CONSOLE - RESTRICTED ACCESS</span>
+<div class="alert alert-warning d-flex align-items-center gap-2 mb-3" role="alert">
+  <i class="bi bi-shield-exclamation"></i>
+  <div><strong>Admin Console:</strong> Restricted access area for system management.</div>
 </div>
 
-<div class="stats-grid mb-3">
-  <?= render_stat_card('Pending', (string)$pending, 'stat-rank', 'glow-amber') ?>
-  <?= render_stat_card('Active Users', (string)$active, 'stat-points', 'glow-green') ?>
-  <?= render_stat_card('Challenges', (string)$challs, 'stat-solved', 'glow-cyan') ?>
-  <?= render_stat_card('Solves', (string)$solves, '', '') ?>
+<div class="row g-3 mb-3">
+  <div class="col-lg-3 col-md-6">
+    <div class="card stat-card-modern stat-rank">
+      <div class="card-body">
+        <div class="stat-card-label">Pending</div>
+        <div class="stat-card-value" style="color:#d97706;"><?= e((string)$pending) ?></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6">
+    <div class="card stat-card-modern">
+      <div class="card-body">
+        <div class="stat-card-label">Active Users</div>
+        <div class="stat-card-value text-primary"><?= e((string)$active) ?></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6">
+    <div class="card stat-card-modern stat-solved">
+      <div class="card-body">
+        <div class="stat-card-label">Challenges</div>
+        <div class="stat-card-value text-success"><?= e((string)$challs) ?></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6">
+    <div class="card stat-card-modern stat-remaining">
+      <div class="card-body">
+        <div class="stat-card-label">Solves</div>
+        <div class="stat-card-value text-danger"><?= e((string)$solves) ?></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="card">
   <div class="card-body">
-    <h3 class="section-head">// ACTIONS</h3>
-    <div class="admin-actions">
-      <a class="cmd-action users" href="<?= e(BASE_URL) ?>/admin_users.php">[ manage_users ]</a>
-      <a class="cmd-action challs" href="<?= e(BASE_URL) ?>/admin_challenges.php">[ manage_challenges ]</a>
-      <a class="cmd-action solves" href="<?= e(BASE_URL) ?>/admin_solves.php">[ view_solves_log ]</a>
+    <h2 class="h5 mb-3">Quick Actions</h2>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-primary" href="<?= e(BASE_URL) ?>/admin_users.php">Manage Users</a>
+      <a class="btn btn-success" href="<?= e(BASE_URL) ?>/admin_challenges.php">Manage Challenges</a>
+      <a class="btn btn-warning text-white" href="<?= e(BASE_URL) ?>/admin_solves.php">View Solves Log</a>
     </div>
   </div>
 </div>

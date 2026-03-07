@@ -18,9 +18,6 @@ $recent = $stmt->fetchAll();
 $totalChallenges = (int)db()->query('SELECT COUNT(*) FROM challenges WHERE is_active=1')->fetchColumn();
 $remaining = max(0, $totalChallenges - $solved);
 $completionPct = $totalChallenges > 0 ? (int)floor(($solved / $totalChallenges) * 100) : 0;
-$slots = 16;
-$filled = min($slots, max(0, (int)round(($completionPct / 100) * $slots)));
-$asciiBar = '[' . str_repeat('&#9608;', $filled) . str_repeat('&#9617;', $slots - $filled) . ']';
 
 $rank = 0;
 if (($u['role'] ?? '') === 'user') {
@@ -56,36 +53,74 @@ $catValues = array_map(static fn(array $row): int => (int)$row['cnt'], $category
 include __DIR__ . '/header.php';
 ?>
 
-<div class="dashboard-header box-glow">
-  <h2 class="operator-name">OPERATOR: @<?= e((string)($u['username'] ?? 'unknown')) ?></h2>
-  <div class="operator-meta">
-    <span class="rank-badge glow-amber">RANK: <?= $rank > 0 ? '#' . e((string)$rank) : 'N/A' ?></span>
-    <span class="point-badge glow-green">POINTS: <?= e((string)$points) ?></span>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+  <div>
+    <h1 class="page-title mb-0">Dashboard</h1>
+    <p class="page-subtitle">Welcome back, @<?= e((string)($u['username'] ?? 'operator')) ?></p>
+  </div>
+  <?php if ($rank > 0): ?>
+    <span class="badge bg-primary fs-6">Rank #<?= e((string)$rank) ?></span>
+  <?php endif; ?>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-3 col-md-6">
+    <div class="card stat-card-modern">
+      <div class="card-body">
+        <div class="stat-card-label">Points</div>
+        <div class="stat-card-value text-primary"><?= e((string)$points) ?></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6">
+    <div class="card stat-card-modern stat-solved">
+      <div class="card-body">
+        <div class="stat-card-label">Solved</div>
+        <div class="stat-card-value text-success"><?= e((string)$solved) ?></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6">
+    <div class="card stat-card-modern stat-rank">
+      <div class="card-body">
+        <div class="stat-card-label">Rank</div>
+        <div class="stat-card-value" style="color:#d97706;"><?= $rank > 0 ? e((string)$rank) : '--' ?></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-3 col-md-6">
+    <div class="card stat-card-modern stat-remaining">
+      <div class="card-body">
+        <div class="stat-card-label">Remaining</div>
+        <div class="stat-card-value text-danger"><?= e((string)$remaining) ?></div>
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="stats-grid">
-  <?= render_stat_card('Points', (string)$points, 'stat-points', 'glow-green') ?>
-  <?= render_stat_card('Solved', (string)$solved, 'stat-solved', 'glow-cyan') ?>
-  <?= render_stat_card('Rank', $rank > 0 ? (string)$rank : '--', 'stat-rank', 'glow-amber') ?>
-  <?= render_stat_card('Remaining', (string)$remaining, 'stat-remain') ?>
-</div>
-
-<div class="progress-shell">
-  <div class="progress-label">Completion</div>
-  <div class="progress-line"><?= $asciiBar ?> <?= e((string)$completionPct) ?>%</div>
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span class="fw-semibold">Progress</span>
+      <span class="text-muted small"><?= e((string)$completionPct) ?>%</span>
+    </div>
+    <div class="progress mb-2" role="progressbar" aria-label="progress" aria-valuenow="<?= e((string)$completionPct) ?>" aria-valuemin="0" aria-valuemax="100">
+      <div class="progress-bar bg-primary" style="width: <?= e((string)$completionPct) ?>%"></div>
+    </div>
+    <small class="text-muted"><?= e((string)$solved) ?> of <?= e((string)$totalChallenges) ?> challenges solved</small>
+  </div>
 </div>
 
 <div class="row g-3 mb-3">
   <div class="col-lg-8">
     <div class="chart-shell">
-      <div class="progress-label mb-2">Score Progression</div>
+      <div class="fw-semibold mb-2">Score Over Time</div>
       <canvas id="scoreProgressChart"></canvas>
     </div>
   </div>
   <div class="col-lg-4">
     <div class="chart-shell">
-      <div class="progress-label mb-2">Solved by Category</div>
+      <div class="fw-semibold mb-2">Solved by Category</div>
       <canvas id="categoryBreakdownChart"></canvas>
     </div>
   </div>
@@ -93,16 +128,16 @@ include __DIR__ . '/header.php';
 
 <div class="card">
   <div class="card-body">
-    <h3 class="section-head">// RECENT_SOLVES</h3>
+    <h2 class="h5 mb-3">Recent Solves</h2>
 
     <?php if (!$recent): ?>
       <div class="alert alert-info mb-0">No solves yet. Open a challenge and submit your first flag.</div>
     <?php else: ?>
       <div class="table-responsive">
-        <table class="table recent-solve-table align-middle">
+        <table class="table table-striped align-middle">
           <thead>
             <tr>
-              <th style="width:72px;">State</th>
+              <th style="width:72px;">Status</th>
               <th style="width:190px;">Time</th>
               <th>Challenge</th>
               <th style="width:100px;" class="text-end">Points</th>
@@ -111,10 +146,10 @@ include __DIR__ . '/header.php';
           <tbody>
             <?php foreach ($recent as $r): ?>
               <tr>
-                <td><span class="solve-yes">&#10003;</span></td>
+                <td><span class="badge bg-success">Solved</span></td>
                 <td><?= e((string)$r['solved_at']) ?></td>
                 <td><?= e((string)$r['title']) ?></td>
-                <td class="text-end"><?= e((string)$r['points']) ?></td>
+                <td class="text-end fw-semibold text-primary"><?= e((string)$r['points']) ?></td>
               </tr>
             <?php endforeach; ?>
           </tbody>
@@ -142,21 +177,20 @@ include __DIR__ . '/header.php';
         datasets: [{
           label: 'Points',
           data: progressValues,
-          borderColor: '#00ff88',
-          backgroundColor: 'rgba(0,255,136,0.2)',
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.12)',
           tension: 0.35,
           pointRadius: 2,
-          pointBackgroundColor: '#00d4ff',
           fill: true,
         }],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { labels: { color: '#c8dce8' } } },
+        plugins: { legend: { labels: { color: '#334155' } } },
         scales: {
-          x: { ticks: { color: '#7fa0b5', maxTicksLimit: 6 }, grid: { color: 'rgba(0,255,136,0.08)' } },
-          y: { ticks: { color: '#7fa0b5' }, grid: { color: 'rgba(0,255,136,0.08)' } },
+          x: { ticks: { color: '#64748b', maxTicksLimit: 6 }, grid: { color: '#e2e8f0' } },
+          y: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' } },
         },
       },
     });
@@ -170,8 +204,8 @@ include __DIR__ . '/header.php';
         labels: categoryLabels,
         datasets: [{
           data: categoryValues,
-          backgroundColor: ['#00ff88', '#00d4ff', '#ffaa00', '#ff3355', '#b060ff', '#7fa0b5'],
-          borderColor: '#060b14',
+          backgroundColor: ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#8b5cf6', '#0ea5e9'],
+          borderColor: '#ffffff',
           borderWidth: 1,
         }],
       },
@@ -181,7 +215,7 @@ include __DIR__ . '/header.php';
         plugins: {
           legend: {
             position: 'bottom',
-            labels: { color: '#c8dce8', boxWidth: 12 },
+            labels: { color: '#334155', boxWidth: 12 },
           },
         },
       },

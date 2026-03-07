@@ -3,17 +3,12 @@
 <footer class="ops-footer">
   <div class="container d-flex flex-column flex-md-row justify-content-between align-items-center gap-2">
     <div>&copy; <?= date('Y') ?> <?= e(APP_NAME) ?></div>
-    <div class="ops-footer-shell">root@cyberclub:~$ <span class="blink"></span></div>
+    <div class="text-muted-custom">Professional Capture The Flag Platform</div>
   </div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-if (window.NProgress) {
-  NProgress.done();
-}
-</script>
 
 </body>
 </html>

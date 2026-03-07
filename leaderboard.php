@@ -66,15 +66,14 @@ if ($topIds) {
     $graphLabels = array_keys($rowsByTs);
     sort($graphLabels, SORT_STRING);
 
-    $running = [];
-    foreach ($topUsers as $tu) {
-        $running[(int)$tu['id']] = 0;
-    }
-
     foreach ($topUsers as $tu) {
         $uid = (int)$tu['id'];
-        $series = [];
+        $running = [];
+        foreach ($topUsers as $initUser) {
+            $running[(int)$initUser['id']] = 0;
+        }
 
+        $series = [];
         foreach ($graphLabels as $label) {
             if (!empty($rowsByTs[$label])) {
                 foreach ($rowsByTs[$label] as $event) {
@@ -88,93 +87,92 @@ if ($topIds) {
             'label' => '@' . (string)$tu['username'],
             'data' => $series,
         ];
-
-        // Reset running counters for next dataset build.
-        foreach ($running as $k => $v) {
-            $running[$k] = 0;
-        }
     }
 }
 
 include __DIR__ . '/header.php';
 ?>
 
-<div class="leader-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
   <div>
-    <h2 class="leader-title glow-green">// LEADERBOARD</h2>
-    <div class="leader-subtitle">
-      TOP OPERATORS - RANKED BY SCORE<?= $cutoff ? ' (FROZEN @ ' . e($cutoff) . ')' : '' ?>
-    </div>
+    <h1 class="page-title mb-0">Leaderboard</h1>
+    <p class="page-subtitle">
+      Ranked by score<?= $cutoff ? ' (frozen at ' . e($cutoff) . ')' : '' ?>
+    </p>
   </div>
-  <button id="toggleScoreGraph" class="btn btn-outline-secondary btn-sm" type="button">[ SCORE GRAPH ]</button>
+  <button id="toggleScoreGraph" class="btn btn-outline-primary" type="button">Score Graph</button>
 </div>
 
 <div id="topScoreChartWrap" class="chart-shell mb-3" style="display:none;">
   <canvas id="topScoreChart"></canvas>
 </div>
 
-<div class="scoreboard-wrap">
-  <div class="table-responsive">
-    <table class="score-table">
-      <thead>
-        <tr>
-          <th style="width: 130px;">Rank</th>
-          <th>User</th>
-          <th style="width: 130px;" class="text-end">Points</th>
-          <th style="width: 100px;" class="text-end">Solves</th>
-          <th style="width: 210px;" class="text-end">Last Solve</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php $i = $offset + 1; foreach ($rows as $r): ?>
-          <?php
-            $rank = $i++;
-            $isCurrent = strtolower((string)($u['username'] ?? '')) === strtolower((string)$r['username']);
-          ?>
-          <tr class="<?= $isCurrent ? 'current-user-row' : '' ?>">
-            <td>
-              <?php if ($rank === 1): ?>
-                <span class="rank-1">&#9654; #1</span>
-              <?php elseif ($rank === 2): ?>
-                <span class="rank-2">#2</span>
-              <?php elseif ($rank === 3): ?>
-                <span class="rank-3">#3</span>
-              <?php else: ?>
-                <span class="rank-rest">#<?= e((string)$rank) ?></span>
-              <?php endif; ?>
-            </td>
-            <td><span class="score-user">@<?= e((string)$r['username']) ?></span></td>
-            <td class="text-end"><span class="score-points"><?= e((string)$r['points']) ?></span></td>
-            <td class="text-end"><span class="score-solves"><?= e((string)$r['solves']) ?></span></td>
-            <td class="text-end"><?= e((string)($r['last_solve'] ?? '-')) ?></td>
+<div class="card">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-striped align-middle leaderboard-table">
+        <thead>
+          <tr>
+            <th style="width: 110px;">Rank</th>
+            <th>User</th>
+            <th style="width: 120px;" class="text-end">Points</th>
+            <th style="width: 100px;" class="text-end">Solves</th>
+            <th style="width: 180px;" class="text-end">Last Solve</th>
           </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
+        </thead>
+        <tbody>
+          <?php $i = $offset + 1; foreach ($rows as $r): ?>
+            <?php
+              $rank = $i++;
+              $isCurrent = strtolower((string)($u['username'] ?? '')) === strtolower((string)$r['username']);
+              $rowClasses = [];
+              if ($rank === 1) {
+                $rowClasses[] = 'rank-first';
+              }
+              if ($isCurrent) {
+                $rowClasses[] = 'rank-current';
+              }
+            ?>
+            <tr class="<?= e(implode(' ', $rowClasses)) ?>">
+              <td class="fw-semibold">#<?= e((string)$rank) ?></td>
+              <td>@<?= e((string)$r['username']) ?></td>
+              <td class="points-cell"><?= e((string)$r['points']) ?></td>
+              <td class="text-end"><?= e((string)$r['solves']) ?></td>
+              <td class="text-end text-muted"><?= e((string)($r['last_solve'] ?? '-')) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
 
-  <?php if (!$rows): ?>
-    <div class="alert alert-info mt-3 mb-0">No ranked users yet.</div>
-  <?php endif; ?>
+    <?php if (!$rows): ?>
+      <div class="alert alert-info mb-0 mt-2">No ranked users yet.</div>
+    <?php endif; ?>
 
-  <div class="d-flex justify-content-between align-items-center mt-3 gap-2 flex-wrap">
-    <div class="small text-muted">Page <?= e((string)$page) ?> / <?= e((string)$totalPages) ?></div>
-    <div class="d-flex gap-2 align-items-center">
-      <?php if ($page > 1): ?>
-        <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/leaderboard.php?page=<?= e((string)($page - 1)) ?>">Prev</a>
-      <?php endif; ?>
+    <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+      <small class="text-muted">Page <?= e((string)$page) ?> of <?= e((string)$totalPages) ?></small>
 
-      <?php
-        $start = max(1, $page - 2);
-        $end = min($totalPages, $page + 2);
-        for ($p = $start; $p <= $end; $p++):
-      ?>
-        <a class="btn btn-sm <?= $p === $page ? 'btn-green' : 'btn-outline-secondary' ?>" href="<?= e(BASE_URL) ?>/leaderboard.php?page=<?= e((string)$p) ?>"><?= e((string)$p) ?></a>
-      <?php endfor; ?>
+      <nav aria-label="Leaderboard pages">
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+            <a class="page-link" href="<?= e(BASE_URL) ?>/leaderboard.php?page=<?= e((string)max(1, $page - 1)) ?>">Previous</a>
+          </li>
 
-      <?php if ($page < $totalPages): ?>
-        <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/leaderboard.php?page=<?= e((string)($page + 1)) ?>">Next</a>
-      <?php endif; ?>
+          <?php
+            $start = max(1, $page - 2);
+            $end = min($totalPages, $page + 2);
+            for ($p = $start; $p <= $end; $p++):
+          ?>
+            <li class="page-item <?= $p === $page ? 'active' : '' ?>">
+              <a class="page-link" href="<?= e(BASE_URL) ?>/leaderboard.php?page=<?= e((string)$p) ?>"><?= e((string)$p) ?></a>
+            </li>
+          <?php endfor; ?>
+
+          <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
+            <a class="page-link" href="<?= e(BASE_URL) ?>/leaderboard.php?page=<?= e((string)min($totalPages, $page + 1)) ?>">Next</a>
+          </li>
+        </ul>
+      </nav>
     </div>
   </div>
 </div>
@@ -190,7 +188,7 @@ include __DIR__ . '/header.php';
   const datasetsRaw = <?= json_encode($graphDatasets, JSON_UNESCAPED_UNICODE) ?>;
 
   let chart = null;
-  const palette = ['#00ff88', '#00d4ff', '#ffaa00', '#ff3355', '#b060ff'];
+  const palette = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#8b5cf6'];
 
   toggle.addEventListener('click', function () {
     const isOpen = wrap.style.display !== 'none';
@@ -216,12 +214,10 @@ include __DIR__ . '/header.php';
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: {
-          legend: { labels: { color: '#c8dce8' } },
-        },
+        plugins: { legend: { labels: { color: '#334155' } } },
         scales: {
-          x: { ticks: { color: '#7fa0b5', maxTicksLimit: 8 }, grid: { color: 'rgba(0,255,136,0.08)' } },
-          y: { ticks: { color: '#7fa0b5' }, grid: { color: 'rgba(0,255,136,0.08)' } },
+          x: { ticks: { color: '#64748b', maxTicksLimit: 8 }, grid: { color: '#e2e8f0' } },
+          y: { ticks: { color: '#64748b' }, grid: { color: '#e2e8f0' } },
         },
       },
     });

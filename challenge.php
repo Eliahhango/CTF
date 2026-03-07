@@ -48,70 +48,82 @@ if (is_array($c) && array_key_exists('hint', $c) && trim((string)$c['hint']) !==
 include __DIR__ . '/header.php';
 ?>
 
-<div class="challenge-layout">
-  <div>
-    <div class="card mb-3">
-      <div class="card-body">
-        <div class="challenge-meta">
-          <span class="challenge-cat cat-default"><?= e((string)$c['category']) ?></span>
-          <span class="challenge-points mb-0">[ <?= e((string)$c['points']) ?> ]</span>
-          <span class="challenge-status <?= $solved ? 'status-solved' : 'status-open' ?>"><?= $solved ? '[ PWNED &#10003; ]' : '[ OPEN ]' ?></span>
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card h-100">
+      <div class="card-body p-4">
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+          <span class="badge bg-secondary"><?= e((string)$c['category']) ?></span>
+          <span class="badge bg-primary"><?= e((string)$c['points']) ?> pts</span>
+          <span class="badge <?= $solved ? 'bg-success' : 'text-bg-light border text-primary border-primary' ?>"><?= $solved ? 'Solved' : 'Open' ?></span>
         </div>
 
-        <h1 class="h4"><?= e((string)$c['title']) ?></h1>
+        <h1 class="page-title mb-3"><?= e((string)$c['title']) ?></h1>
 
-        <div class="term-block challenge-description" style="white-space: pre-wrap;">
+        <div class="challenge-description mb-3" style="white-space: pre-wrap;">
           <?= linkify((string)$c['description']) ?>
         </div>
 
         <?php if ($hintText !== ''): ?>
-          <details class="term-block hint-block">
-            <summary>HINTS</summary>
-            <div style="white-space: pre-wrap;"><?= linkify($hintText) ?></div>
-          </details>
+          <div class="alert alert-warning mb-3" style="white-space: pre-wrap;">
+            <strong>Hint:</strong><br>
+            <?= linkify($hintText) ?>
+          </div>
         <?php endif; ?>
 
-        <details class="term-block mt-3">
-          <summary>SOLVERS (<?= e((string)count($solverNames)) ?>)</summary>
-          <?php if (!$solverNames): ?>
-            <div class="small text-muted mt-2">No solves recorded yet.</div>
-          <?php else: ?>
-            <div class="d-flex flex-wrap gap-2 mt-2">
-              <?php foreach ($solverNames as $name): ?>
-                <span class="badge text-bg-secondary">@<?= e($name) ?></span>
-              <?php endforeach; ?>
+        <div class="accordion" id="solverAccordion">
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="solverHeading">
+              <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#solverCollapse" aria-expanded="false" aria-controls="solverCollapse">
+                Solvers (<?= e((string)count($solverNames)) ?>)
+              </button>
+            </h2>
+            <div id="solverCollapse" class="accordion-collapse collapse" aria-labelledby="solverHeading" data-bs-parent="#solverAccordion">
+              <div class="accordion-body">
+                <?php if (!$solverNames): ?>
+                  <p class="text-muted mb-0">No solves recorded yet.</p>
+                <?php else: ?>
+                  <div class="d-flex flex-wrap gap-2">
+                    <?php foreach ($solverNames as $name): ?>
+                      <span class="badge text-bg-light border">@<?= e($name) ?></span>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+              </div>
             </div>
-          <?php endif; ?>
-        </details>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <aside>
-    <div class="submit-panel box-glow">
-      <div class="submit-title">// SUBMIT FLAG</div>
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-3">Submit Flag</h2>
 
-      <?php if ($solved): ?>
-        <div class="alert alert-success mb-3">You already solved this challenge.</div>
-      <?php else: ?>
-        <form method="post" action="<?= e(BASE_URL) ?>/submit_flag.php">
-          <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-          <input type="hidden" name="challenge_id" value="<?= e((string)$id) ?>">
+        <?php if ($solved): ?>
+          <div class="alert alert-success mb-3">You already solved this challenge.</div>
+        <?php else: ?>
+          <form method="post" action="<?= e(BASE_URL) ?>/submit_flag.php">
+            <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+            <input type="hidden" name="challenge_id" value="<?= e((string)$id) ?>">
 
-          <div class="mb-3">
-            <label class="prompt-label" for="flag">Flag</label>
-            <input id="flag" class="form-control terminal-mono" name="flag" placeholder="ccd{...}" required>
-          </div>
+            <div class="mb-3">
+              <label class="form-label" for="flag">Flag</label>
+              <input id="flag" class="form-control" name="flag" placeholder="ccd{...}" required>
+            </div>
 
-          <button class="btn auth-submit w-100" type="submit">Submit</button>
-        </form>
-      <?php endif; ?>
+            <button class="btn btn-primary w-100" type="submit">Submit</button>
+          </form>
+        <?php endif; ?>
 
-      <div class="submit-meta">
-        ATTEMPTS: <?= e((string)$attemptsCount) ?> | FIRST BLOOD: <?= $firstBlood ? '@' . e((string)$firstBlood) : 'N/A' ?>
+        <hr>
+        <p class="mb-1 text-muted small"><strong>Solves:</strong> <?= e((string)$attemptsCount) ?></p>
+        <p class="mb-0 text-muted small"><strong>First Blood:</strong> <?= $firstBlood ? '@' . e((string)$firstBlood) : 'N/A' ?></p>
       </div>
     </div>
-  </aside>
+  </div>
 </div>
 
 <script>

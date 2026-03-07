@@ -1,6 +1,4 @@
 <?php
-declare(strict_types=1);
-
 require_once __DIR__ . '/helpers.php';
 start_session();
 require_active_user();
@@ -10,9 +8,10 @@ if (!challenges_window_open()) {
 }
 
 $u = current_user();
-$challs = db()->query('SELECT id,title,category,points FROM challenges WHERE is_active=1 ORDER BY points ASC, id ASC')->fetchAll();
 
-$stmt = db()->prepare('SELECT challenge_id FROM solves WHERE user_id=?');
+$challs = db()->query("SELECT id,title,category,points FROM challenges WHERE is_active=1 ORDER BY points ASC, id ASC")->fetchAll();
+
+$stmt = db()->prepare("SELECT challenge_id FROM solves WHERE user_id=?");
 $stmt->execute([sanitize_int($u['id'] ?? 0)]);
 $solved_ids = array_flip(array_map(static fn($x): int => (int)$x['challenge_id'], $stmt->fetchAll()));
 
@@ -37,42 +36,62 @@ include __DIR__ . '/header.php';
 
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <div>
-    <h2 class="h5 mb-1">Challenges</h2>
-    <div class="small text-muted">Top operators classify targets before exploitation.</div>
+    <h1 class="page-title mb-0">Challenges</h1>
+    <p class="page-subtitle">Browse challenge categories and start solving.</p>
   </div>
   <div class="d-flex align-items-center gap-2 challenge-search">
-    <input id="challengeSearch" class="form-control form-control-sm" placeholder="Search challenge... (press /)">
-    <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/leaderboard.php">[ LEADERBOARD ]</a>
+    <input id="challengeSearch" class="form-control" placeholder="Search challenges...">
+    <a class="btn btn-outline-primary" href="<?= e(BASE_URL) ?>/leaderboard.php">Leaderboard</a>
   </div>
 </div>
 
-<div class="filter-tabs" id="challengeTabs">
-  <button type="button" class="filter-tab active" data-filter="all">[ ALL ]</button>
+<ul class="nav nav-pills mb-3" id="challengeTabs">
+  <li class="nav-item"><button type="button" class="nav-link active" data-filter="all">All</button></li>
   <?php foreach ($categories as $category): ?>
-    <button type="button" class="filter-tab" data-filter="<?= e($category) ?>">[ <?= e(strtoupper($category)) ?> ]</button>
+    <li class="nav-item"><button type="button" class="nav-link" data-filter="<?= e($category) ?>"><?= e(ucfirst($category)) ?></button></li>
   <?php endforeach; ?>
-</div>
+</ul>
 
-<div class="challenge-grid" id="challengeGrid">
+<div class="row g-3" id="challengeGrid">
   <?php foreach ($challs as $c): ?>
     <?php
       $cid = (int)$c['id'];
       $solved = isset($solved_ids[$cid]);
       $catKey = category_key((string)$c['category']);
       $stats = $challengeStats[$cid] ?? ['solve_count' => 0, 'first_blood' => ''];
-
-      $cardData = [
-        'id' => $cid,
-        'title' => (string)$c['title'],
-        'category' => (string)$c['category'],
-        'points' => (int)$c['points'],
-        'cat_key' => $catKey,
-        'solve_count' => (int)$stats['solve_count'],
-        'first_blood' => (string)$stats['first_blood'],
-      ];
-
-      echo render_challenge_card($cardData, $solved);
+      $firstBlood = (string)$stats['first_blood'];
+      $solveCount = (int)$stats['solve_count'];
     ?>
+
+    <div class="col-lg-4 col-md-6" data-category="<?= e($catKey) ?>" data-title="<?= e(strtolower((string)$c['title'])) ?>">
+      <article class="card challenge-card">
+        <div class="challenge-category-strip cat-strip-<?= e($catKey) ?>"></div>
+
+        <?php if ($firstBlood !== ''): ?>
+          <span class="first-blood-badge">First Blood @<?= e($firstBlood) ?></span>
+        <?php endif; ?>
+
+        <div class="card-body pt-3">
+          <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+            <span class="badge bg-secondary"><?= e((string)$c['category']) ?></span>
+            <span class="badge bg-primary"><?= e((string)$c['points']) ?> pts</span>
+          </div>
+
+          <h3 class="challenge-title"><?= e((string)$c['title']) ?></h3>
+          <p class="challenge-meta-text mb-3"><?= e((string)$solveCount) ?> solves</p>
+
+          <div class="d-flex justify-content-between align-items-center gap-2">
+            <?php if ($solved): ?>
+              <span class="badge bg-success">Solved</span>
+            <?php else: ?>
+              <span class="badge text-bg-light border text-primary border-primary">Open</span>
+            <?php endif; ?>
+
+            <a class="btn btn-sm btn-outline-primary" href="<?= e(BASE_URL) ?>/challenge.php?id=<?= e((string)$cid) ?>">Open</a>
+          </div>
+        </div>
+      </article>
+    </div>
   <?php endforeach; ?>
 </div>
 
@@ -82,29 +101,29 @@ include __DIR__ . '/header.php';
 
 <script>
 (function () {
-  const tabs = Array.from(document.querySelectorAll('#challengeTabs .filter-tab'));
-  const cards = Array.from(document.querySelectorAll('#challengeGrid .challenge-item'));
+  const tabs = Array.from(document.querySelectorAll('#challengeTabs .nav-link'));
+  const cols = Array.from(document.querySelectorAll('#challengeGrid > div[data-category]'));
   const searchInput = document.getElementById('challengeSearch');
 
   if (!tabs.length) return;
 
   function applyFilter() {
-    const active = document.querySelector('#challengeTabs .filter-tab.active');
-    const filterKey = (active && active.dataset.filter) ? active.dataset.filter : 'all';
-    const q = (searchInput && searchInput.value ? searchInput.value : '').toLowerCase().trim();
+    const active = document.querySelector('#challengeTabs .nav-link.active');
+    const filterKey = active ? (active.dataset.filter || 'all') : 'all';
+    const query = ((searchInput && searchInput.value) ? searchInput.value : '').toLowerCase().trim();
 
-    cards.forEach((card) => {
-      const key = card.getAttribute('data-category') || 'default';
-      const title = (card.getAttribute('data-title') || '').toLowerCase();
-      const filterOk = (filterKey === 'all' || key === filterKey);
-      const searchOk = (q === '' || title.indexOf(q) !== -1);
-      card.style.display = (filterOk && searchOk) ? '' : 'none';
+    cols.forEach((col) => {
+      const key = col.getAttribute('data-category') || 'default';
+      const title = (col.getAttribute('data-title') || '').toLowerCase();
+      const filterOk = (filterKey === 'all' || filterKey === key);
+      const searchOk = (query === '' || title.indexOf(query) !== -1);
+      col.style.display = (filterOk && searchOk) ? '' : 'none';
     });
   }
 
   tabs.forEach((tab) => {
     tab.addEventListener('click', () => {
-      tabs.forEach((x) => x.classList.remove('active'));
+      tabs.forEach((item) => item.classList.remove('active'));
       tab.classList.add('active');
       applyFilter();
     });
@@ -117,7 +136,7 @@ include __DIR__ . '/header.php';
   document.addEventListener('keydown', function (evt) {
     if (evt.key !== '/') return;
 
-    const tag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toLowerCase() : '';
+    const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : '';
     if (tag === 'input' || tag === 'textarea' || (document.activeElement && document.activeElement.isContentEditable)) {
       return;
     }
