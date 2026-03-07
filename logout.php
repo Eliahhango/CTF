@@ -1,5 +1,4 @@
 <?php
 require_once __DIR__ . '/helpers.php';
 start_session();
-session_destroy();
-redirect('/index.php');
+clear_session_and_redirect('/index.php');

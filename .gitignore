@@ -1,2 +1,8 @@
 # Local database dump
 if0_41083503_ctf_ccd.sql
+
+# Local secrets
+.env
+
+# Runtime logs
+logs/

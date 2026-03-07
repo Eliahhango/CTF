@@ -5,8 +5,8 @@ if (is_logged_in()) redirect('/index.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_validate();
-  $userOrEmail = trim($_POST['username'] ?? '');
-  $pass = (string)($_POST['password'] ?? '');
+  $userOrEmail = sanitize_str($_POST['username'] ?? '', 120);
+  $pass = sanitize_str($_POST['password'] ?? '', 255);
 
   $ip = ip_address();
   $lock = login_lock_status($userOrEmail, $ip);
@@ -29,7 +29,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   unset($u['password_hash']);
   clear_login_attempts($userOrEmail, $ip);
+  session_regenerate_id(true);
   $_SESSION['user'] = $u;
+  $_SESSION['auth_time'] = time();
+  $_SESSION['last_activity'] = time();
 
   if (($u['status'] ?? '') === 'active') redirect('/dashboard.php');
   if (($u['status'] ?? '') === 'banned') redirect('/banned.php');

@@ -6,6 +6,13 @@ $u = current_user();
 if ($u && ($u['status'] ?? '') === 'active') redirect('/dashboard.php');
 if ($u && ($u['status'] ?? '') !== 'active') redirect('/pending.php');
 
+$stats = db()->query("
+  SELECT
+    (SELECT COUNT(*) FROM challenges WHERE is_active=1) AS challenges_count,
+    (SELECT COUNT(*) FROM users WHERE role='user' AND status='active') AS users_count,
+    (SELECT COUNT(*) FROM solves) AS solves_count
+")->fetch();
+
 include __DIR__ . '/header.php';
 ?>
 
@@ -46,9 +53,9 @@ include __DIR__ . '/header.php';
           </div>
 
           <div class="stat-chip-row">
-            <span class="stat-chip">XX CHALLENGES</span>
-            <span class="stat-chip">XX PLAYERS</span>
-            <span class="stat-chip">XX SOLVES</span>
+            <span class="stat-chip"><?= e((string)($stats['challenges_count'] ?? 0)) ?> CHALLENGES</span>
+            <span class="stat-chip"><?= e((string)($stats['users_count'] ?? 0)) ?> PLAYERS</span>
+            <span class="stat-chip"><?= e((string)($stats['solves_count'] ?? 0)) ?> SOLVES</span>
           </div>
         </div>
       </div>

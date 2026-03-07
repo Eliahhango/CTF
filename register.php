@@ -5,9 +5,15 @@ if (is_logged_in()) redirect('/index.php');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_validate();
-  $username = trim($_POST['username'] ?? '');
-  $email = trim($_POST['email'] ?? '');
-  $pass = (string)($_POST['password'] ?? '');
+  $honeypot = sanitize_str($_POST['company'] ?? '', 255);
+  $username = sanitize_str($_POST['username'] ?? '', 50);
+  $email = sanitize_str($_POST['email'] ?? '', 120);
+  $pass = sanitize_str($_POST['password'] ?? '', 255);
+
+  if ($honeypot !== '') {
+    flash_set('success','Registration received. Check back shortly.');
+    redirect('/login.php');
+  }
 
   if ($username==='' || $email==='' || $pass==='') { flash_set('danger','All fields required.'); redirect('/register.php'); }
   if (strlen($pass) < PASSWORD_MIN_LEN) { flash_set('danger','Password too short (min '.PASSWORD_MIN_LEN.').'); redirect('/register.php'); }
@@ -41,6 +47,7 @@ include __DIR__ . '/header.php';
 
           <form method="post">
             <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+            <input type="text" name="company" value="" tabindex="-1" autocomplete="off" style="position:absolute;left:-9999px;opacity:0;" aria-hidden="true">
 
             <div class="mb-3">
               <label class="prompt-label" for="username">Username</label>

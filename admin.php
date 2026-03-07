@@ -17,25 +17,10 @@ include __DIR__ . '/header.php';
 </div>
 
 <div class="stats-grid mb-3">
-  <div class="stat-card stat-rank">
-    <div class="label">Pending</div>
-    <div class="value glow-amber"><?= e((string)$pending) ?></div>
-  </div>
-
-  <div class="stat-card stat-points">
-    <div class="label">Active Users</div>
-    <div class="value glow-green"><?= e((string)$active) ?></div>
-  </div>
-
-  <div class="stat-card stat-solved">
-    <div class="label">Challenges</div>
-    <div class="value glow-cyan"><?= e((string)$challs) ?></div>
-  </div>
-
-  <div class="stat-card" style="border-left: 3px solid var(--purple);">
-    <div class="label">Solves</div>
-    <div class="value" style="color: var(--purple);"><?= e((string)$solves) ?></div>
-  </div>
+  <?= render_stat_card('Pending', (string)$pending, 'stat-rank', 'glow-amber') ?>
+  <?= render_stat_card('Active Users', (string)$active, 'stat-points', 'glow-green') ?>
+  <?= render_stat_card('Challenges', (string)$challs, 'stat-solved', 'glow-cyan') ?>
+  <?= render_stat_card('Solves', (string)$solves, '', '') ?>
 </div>
 
 <div class="card">

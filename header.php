@@ -1,4 +1,8 @@
 <?php
+if (ob_get_level() === 0) {
+  ob_start();
+}
+
 require_once __DIR__ . '/helpers.php';
 start_session();
 $u = current_user();
@@ -44,13 +48,21 @@ if ($now < $startTs) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= e(APP_NAME) ?></title>
 
-  <link rel="shortcut icon" href="<?= e(BASE_URL) ?>/assets/logo.png" type="image/x-icon">
+  <link rel="icon" href="<?= e(BASE_URL) ?>/favicon.php" type="image/svg+xml">
+  <link rel="shortcut icon" href="<?= e(BASE_URL) ?>/favicon.php" type="image/x-icon">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nprogress/0.2.0/nprogress.min.js"></script>
+  <script>
+    NProgress.configure({ showSpinner: false, trickleSpeed: 120, minimum: 0.08 });
+    NProgress.start();
+    window.addEventListener('load', function () { NProgress.done(); });
+  </script>
 
   <style>
     :root {
@@ -468,6 +480,47 @@ if ($now < $startTs) {
     .terminal-output { color: var(--text-primary); }
     .stat-chip-row { margin-top: .8rem; display: flex; gap: .45rem; flex-wrap: wrap; }
     .stat-chip { border: 1px solid var(--border); background: rgba(0,0,0,.4); color: var(--text-primary); font-family: var(--font-mono); font-size: .72rem; letter-spacing: .08em; padding: .35rem .5rem; border-radius: 3px; }
+    .first-blood-ribbon {
+      position: absolute;
+      top: .55rem;
+      right: .6rem;
+      font-family: var(--font-mono);
+      font-size: .62rem;
+      letter-spacing: .08em;
+      color: #000;
+      background: var(--amber);
+      border-radius: 3px;
+      padding: .18rem .36rem;
+      text-transform: uppercase;
+      box-shadow: 0 0 16px rgba(255,170,0,.25);
+      max-width: 65%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .challenge-search {
+      max-width: 320px;
+      min-width: 220px;
+    }
+    .chart-shell {
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.38);
+      border-radius: 4px;
+      padding: .8rem;
+      min-height: 280px;
+    }
+    .chart-shell canvas {
+      width: 100% !important;
+      height: 240px !important;
+    }
+    #nprogress .bar {
+      background: var(--green) !important;
+      box-shadow: 0 0 10px var(--green), 0 0 5px var(--green) !important;
+      height: 2px !important;
+    }
+    #nprogress .peg {
+      box-shadow: 0 0 10px var(--green), 0 0 5px var(--green) !important;
+    }
 
     .auth-screen { min-height: calc(100vh - 130px); display: flex; align-items: center; justify-content: center; padding: .8rem 0 1.6rem; }
     .auth-shell-wrap { width: 100%; max-width: 460px; border: 1px solid var(--border-bright); background: var(--bg-card); box-shadow: 0 0 40px rgba(0,255,136,.06); border-radius: 6px; padding: 40px; margin: 0 auto; }
@@ -572,6 +625,15 @@ if ($now < $startTs) {
       .auth-shell-wrap { padding: 28px 18px; }
       .ops-countdown { width: 100%; justify-content: space-between; }
       .ops-user, .ops-exit { min-height: 44px; }
+      .terminal-panel, .term-block {
+        overflow-x: auto;
+        overflow-wrap: anywhere;
+      }
+      .challenge-search {
+        max-width: 100%;
+        min-width: 0;
+        width: 100%;
+      }
     }
   </style>
 </head>
