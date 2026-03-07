@@ -61,3 +61,15 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   INDEX idx_login_attempts_locked_until (locked_until),
   INDEX idx_login_attempts_last_attempt (last_attempt)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS challenge_files (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  challenge_id INT NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  stored_name VARCHAR(255) NOT NULL,
+  file_size INT NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  uploaded_at DATETIME NOT NULL,
+  INDEX idx_challenge_files_challenge (challenge_id),
+  CONSTRAINT fk_cf_challenge FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

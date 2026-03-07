@@ -134,6 +134,18 @@ define('CHALLENGES_OPEN_AT', env_value('CHALLENGES_OPEN_AT', '2026-02-27 21:10:0
 define('CHALLENGES_CLOSE_AT', env_value('CHALLENGES_CLOSE_AT', '2026-03-01 21:00:00'));
 define('FREEZE_SCOREBOARD_AT', env_value('FREEZE_SCOREBOARD_AT', ''));
 
+// UPLOADS
+$uploadDirValue = env_value('UPLOAD_DIR', __DIR__ . '/uploads');
+if ($uploadDirValue === null) {
+    $uploadDirValue = __DIR__ . '/uploads';
+}
+if (!preg_match('/^([a-zA-Z]:[\\\\\\/]|\\\\\\\\|\\/)/', $uploadDirValue)) {
+    $uploadDirValue = __DIR__ . '/' . ltrim($uploadDirValue, '/\\');
+}
+define('UPLOAD_DIR', $uploadDirValue);
+define('UPLOAD_MAX_MB', max(1, (int)env_value('UPLOAD_MAX_MB', '50')));
+define('ALLOWED_EXTENSIONS', env_value('ALLOWED_EXTENSIONS', 'zip,tar.gz,pcap,png,jpg,pdf,txt,py,c'));
+
 // LOGGING
 define('LOG_DIR', __DIR__ . '/logs');
 define('LOG_FILE', LOG_DIR . '/error.log');

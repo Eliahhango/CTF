@@ -6,3 +6,6 @@ if0_41083503_ctf_ccd.sql
 
 # Runtime logs
 logs/
+
+# Runtime challenge attachments
+uploads/

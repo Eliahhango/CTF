@@ -27,6 +27,8 @@ $stmt2 = db()->prepare('SELECT 1 FROM solves WHERE user_id=? AND challenge_id=? 
 $stmt2->execute([sanitize_int($u['id'] ?? 0), $id]);
 $solved = (bool)$stmt2->fetchColumn();
 
+$files = get_challenge_files($id);
+
 $attemptsStmt = db()->prepare('SELECT COUNT(*) FROM solves WHERE challenge_id=?');
 $attemptsStmt->execute([$id]);
 $attemptsCount = (int)$attemptsStmt->fetchColumn();
@@ -101,6 +103,30 @@ include __DIR__ . '/header.php';
     <div class="card">
       <div class="card-body p-4">
         <h2 class="h5 mb-3">Submit Flag</h2>
+
+        <?php if ($files): ?>
+          <div class="mb-3">
+            <h3 class="h6 mb-2">Downloads</h3>
+            <div class="vstack gap-2">
+              <?php foreach ($files as $file): ?>
+                <div class="d-flex align-items-center justify-content-between gap-2 border rounded p-2">
+                  <div class="d-flex align-items-start gap-2">
+                    <i class="bi bi-file-earmark-arrow-down text-primary"></i>
+                    <div>
+                      <div class="fw-semibold"><?= e((string)$file['original_name']) ?></div>
+                      <div class="text-muted small"><?= e(format_upload_size((int)$file['file_size'])) ?></div>
+                    </div>
+                  </div>
+                  <a class="btn btn-sm btn-outline-primary"
+                     href="<?= e(BASE_URL) ?>/download.php?file_id=<?= e((string)$file['id']) ?>&challenge_id=<?= e((string)$id) ?>">
+                    Download
+                  </a>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <hr>
+        <?php endif; ?>
 
         <?php if ($solved): ?>
           <div class="alert alert-success mb-3">You already solved this challenge.</div>
