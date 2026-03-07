@@ -11,7 +11,7 @@ $userId = sanitize_int($u['id'] ?? 0, 0, 1);
 $points = user_points($userId);
 $solved = solved_count($userId);
 
-$stmt = db()->prepare('SELECT s.solved_at, c.title, c.points FROM solves s JOIN challenges c ON c.id=s.challenge_id WHERE s.user_id=? ORDER BY s.solved_at DESC LIMIT 10');
+$stmt = db()->prepare('SELECT s.solved_at, c.id AS challenge_id, c.title, c.points FROM solves s JOIN challenges c ON c.id=s.challenge_id WHERE s.user_id=? ORDER BY s.solved_at DESC LIMIT 10');
 $stmt->execute([$userId]);
 $recent = $stmt->fetchAll();
 
@@ -50,6 +50,24 @@ $categoryRows = $categoryStmt->fetchAll();
 $catLabels = array_map(static fn(array $row): string => (string)$row['category'], $categoryRows);
 $catValues = array_map(static fn(array $row): int => (int)$row['cnt'], $categoryRows);
 
+$nextStmt = db()->prepare(
+    'SELECT id, title, category, points FROM challenges
+     WHERE is_active=1 AND id NOT IN (SELECT challenge_id FROM solves WHERE user_id=?)
+     ORDER BY points ASC LIMIT 1'
+);
+$nextStmt->execute([$userId]);
+$nextChall = $nextStmt->fetch();
+
+$actStmt = db()->query(
+    'SELECT s.solved_at, u.username, u.id AS uid, c.title, c.id AS cid, c.category, s.points_awarded
+     FROM solves s
+     JOIN users u ON u.id = s.user_id
+     JOIN challenges c ON c.id = s.challenge_id
+     ORDER BY s.solved_at DESC
+     LIMIT 10'
+);
+$activityFeed = $actStmt->fetchAll();
+
 include __DIR__ . '/header.php';
 ?>
 
@@ -72,32 +90,60 @@ include __DIR__ . '/header.php';
   <div class="col-lg-3 col-md-6">
     <div class="card stat-card-modern">
       <div class="card-body">
-        <div class="stat-card-label">Points</div>
-        <div class="stat-card-value text-primary"><?= e((string)$points) ?></div>
+        <div class="d-flex align-items-center gap-3">
+          <div style="width:42px;height:42px;border-radius:10px;background:#eff6ff;display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#2563eb;flex-shrink:0;">
+            <i class="bi bi-lightning-charge-fill"></i>
+          </div>
+          <div>
+            <div class="stat-card-label">Points</div>
+            <div class="stat-card-value text-primary"><?= e((string)$points) ?></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
   <div class="col-lg-3 col-md-6">
     <div class="card stat-card-modern stat-solved">
       <div class="card-body">
-        <div class="stat-card-label">Solved</div>
-        <div class="stat-card-value text-success"><?= e((string)$solved) ?></div>
+        <div class="d-flex align-items-center gap-3">
+          <div style="width:42px;height:42px;border-radius:10px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#16a34a;flex-shrink:0;">
+            <i class="bi bi-trophy-fill"></i>
+          </div>
+          <div>
+            <div class="stat-card-label">Solved</div>
+            <div class="stat-card-value text-success"><?= e((string)$solved) ?></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
   <div class="col-lg-3 col-md-6">
     <div class="card stat-card-modern stat-rank">
       <div class="card-body">
-        <div class="stat-card-label">Rank</div>
-        <div class="stat-card-value" style="color:#d97706;"><?= $rank > 0 ? e((string)$rank) : '--' ?></div>
+        <div class="d-flex align-items-center gap-3">
+          <div style="width:42px;height:42px;border-radius:10px;background:#fffbeb;display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#d97706;flex-shrink:0;">
+            <i class="bi bi-bar-chart-fill"></i>
+          </div>
+          <div>
+            <div class="stat-card-label">Rank</div>
+            <div class="stat-card-value" style="color:#d97706;"><?= $rank > 0 ? e((string)$rank) : '--' ?></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
   <div class="col-lg-3 col-md-6">
     <div class="card stat-card-modern stat-remaining">
       <div class="card-body">
-        <div class="stat-card-label">Remaining</div>
-        <div class="stat-card-value text-danger"><?= e((string)$remaining) ?></div>
+        <div class="d-flex align-items-center gap-3">
+          <div style="width:42px;height:42px;border-radius:10px;background:#fef2f2;display:flex;align-items:center;justify-content:center;font-size:1.3rem;color:#dc2626;flex-shrink:0;">
+            <i class="bi bi-hourglass-split"></i>
+          </div>
+          <div>
+            <div class="stat-card-label">Remaining</div>
+            <div class="stat-card-value text-danger"><?= e((string)$remaining) ?></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -116,6 +162,23 @@ include __DIR__ . '/header.php';
   </div>
 </div>
 
+<?php if ($nextChall): ?>
+  <div class="card mb-3">
+    <div class="card-body d-flex align-items-center gap-3 py-3">
+      <i class="bi bi-arrow-right-circle-fill text-primary fs-3 flex-shrink-0"></i>
+      <div class="flex-grow-1">
+        <div class="fw-bold text-primary" style="font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;">
+          Suggested Next
+        </div>
+        <div class="fw-semibold"><?= e((string)$nextChall['title']) ?></div>
+        <div class="text-muted small"><?= e((string)$nextChall['category']) ?> · <?= e((string)$nextChall['points']) ?> pts</div>
+      </div>
+      <a href="<?= e(BASE_URL) ?>/challenge.php?id=<?= e((string)$nextChall['id']) ?>"
+         class="btn btn-sm btn-primary flex-shrink-0">Go →</a>
+    </div>
+  </div>
+<?php endif; ?>
+
 <div class="row g-3 mb-3">
   <div class="col-lg-8">
     <div class="chart-shell">
@@ -130,6 +193,43 @@ include __DIR__ . '/header.php';
     </div>
   </div>
 </div>
+
+<?php if ($activityFeed): ?>
+<div class="card mb-3">
+  <div class="card-body">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h2 class="h5 mb-0">Platform Activity</h2>
+      <span class="badge bg-success" style="font-size:.7rem;">
+        <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#fff;margin-right:4px;
+          animation:livePulse 1.5s infinite;"></span>LIVE
+      </span>
+    </div>
+    <style>@keyframes livePulse{0%,100%{opacity:1}50%{opacity:.4}}</style>
+    <div class="vstack gap-0">
+      <?php foreach ($activityFeed as $i => $a):
+        $catK = strtolower((string)$a['category']);
+        $catColors = ['web'=>'#0ea5e9','crypto'=>'#8b5cf6','forensics'=>'#f59e0b','pwn'=>'#ef4444','linux'=>'#22c55e'];
+        $dotColor = $catColors[$catK] ?? '#94a3b8';
+        $isLast = $i === count($activityFeed) - 1;
+      ?>
+      <div class="d-flex align-items-center gap-3 py-2 <?= !$isLast ? 'border-bottom' : '' ?>">
+        <span style="width:9px;height:9px;border-radius:50%;background:<?= e($dotColor) ?>;flex-shrink:0;"></span>
+        <div class="flex-grow-1 text-truncate">
+          <a href="<?= e(BASE_URL) ?>/profile.php?username=<?= e(urlencode((string)$a['username'])) ?>" class="fw-semibold">
+            @<?= e((string)$a['username']) ?>
+          </a>
+          <span class="text-muted"> solved </span>
+          <a href="<?= e(BASE_URL) ?>/challenge.php?id=<?= e((string)$a['cid']) ?>">
+            <?= e((string)$a['title']) ?>
+          </a>
+        </div>
+        <span class="text-success fw-semibold small flex-shrink-0">+<?= e((string)$a['points_awarded']) ?></span>
+      </div>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="card">
   <div class="card-body">
@@ -153,7 +253,11 @@ include __DIR__ . '/header.php';
               <tr>
                 <td><span class="badge bg-success">Solved</span></td>
                 <td><?= e((string)$r['solved_at']) ?></td>
-                <td><?= e((string)$r['title']) ?></td>
+                <td>
+                  <a href="<?= e(BASE_URL) ?>/challenge.php?id=<?= e((string)$r['challenge_id']) ?>">
+                    <?= e((string)$r['title']) ?>
+                  </a>
+                </td>
                 <td class="text-end fw-semibold text-primary"><?= e((string)$r['points']) ?></td>
               </tr>
             <?php endforeach; ?>

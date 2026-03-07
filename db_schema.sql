@@ -146,6 +146,38 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
   CONSTRAINT fk_aal_admin FOREIGN KEY (admin_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+CREATE TABLE IF NOT EXISTS cheat_alerts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  challenge_id INT NOT NULL,
+  reason ENUM(
+    'copied_correct_flag',
+    'shared_wrong_flag',
+    'speed_solve',
+    'rapid_solves',
+    'same_ip_solve'
+  ) NOT NULL,
+  detail TEXT DEFAULT NULL,
+  severity ENUM('low','medium','high') NOT NULL DEFAULT 'medium',
+  reviewed TINYINT(1) NOT NULL DEFAULT 0,
+  reviewed_by INT DEFAULT NULL,
+  reviewed_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL,
+  INDEX idx_ca_user (user_id),
+  INDEX idx_ca_challenge (challenge_id),
+  INDEX idx_ca_reviewed_severity (reviewed, severity, created_at),
+  CONSTRAINT fk_ca_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+ALTER TABLE challenges
+  ADD COLUMN max_attempts INT NOT NULL DEFAULT 0 AFTER scoring_type,
+  ADD COLUMN flag_type ENUM('static','regex','case_insensitive') NOT NULL DEFAULT 'static' AFTER flag_hash,
+  ADD COLUMN flag_plaintext VARCHAR(600) DEFAULT NULL AFTER flag_type,
+  ADD COLUMN prerequisite_id INT DEFAULT NULL AFTER flag_plaintext,
+  ADD INDEX idx_ch_prereq (prerequisite_id);
+
+ALTER TABLE submissions ADD COLUMN flagged TINYINT(1) NOT NULL DEFAULT 0 AFTER is_correct;
+
 -- Migration for existing deployments:
 -- ALTER TABLE challenges
 --   ADD COLUMN initial_points INT NOT NULL DEFAULT 500 AFTER points,

@@ -142,6 +142,7 @@ define('MAIL_FROM', env_value('MAIL_FROM', ''));
 define('MAIL_FROM_NAME', env_value('MAIL_FROM_NAME', APP_NAME));
 define('RESET_TOKEN_TTL_MINUTES', (int)env_value('RESET_TOKEN_TTL_MINUTES', '60'));
 define('BASE_URL_FULL', env_value('BASE_URL_FULL', ''));
+define('FLAG_ENC_KEY', env_value('FLAG_ENC_KEY', ''));
 
 // UPLOADS
 $uploadDirValue = env_value('UPLOAD_DIR', __DIR__ . '/uploads');

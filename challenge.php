@@ -16,7 +16,7 @@ if ($id <= 0) {
 }
 
 $stmt = db()->prepare(
-    'SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,description
+    'SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,flag_type,description
      FROM challenges
      WHERE id=? AND is_active=1'
 );
@@ -31,6 +31,17 @@ $stmt2 = db()->prepare('SELECT 1 FROM solves WHERE user_id=? AND challenge_id=? 
 $stmt2->execute([sanitize_int($u['id'] ?? 0), $id]);
 $solved = (bool)$stmt2->fetchColumn();
 $userId = sanitize_int($u['id'] ?? 0, 0, 1);
+
+$maxAttempts = (int)($c['max_attempts'] ?? 0);
+$wrongCount = 0;
+if ($maxAttempts > 0) {
+    $wStmt = db()->prepare('SELECT COUNT(*) FROM submissions WHERE user_id=? AND challenge_id=? AND is_correct=0');
+    $wStmt->execute([$userId, $id]);
+    $wrongCount = (int)$wStmt->fetchColumn();
+}
+$attemptsLeft = $maxAttempts > 0 ? max(0, $maxAttempts - $wrongCount) : -1;
+$attsExhausted = $maxAttempts > 0 && $attemptsLeft === 0;
+$flagType = (string)($c['flag_type'] ?? 'static');
 
 $files = get_challenge_files($id);
 
@@ -69,6 +80,27 @@ $solversStmt->execute([$id]);
 $solverRows = $solversStmt->fetchAll();
 $solverNames = array_map(static fn(array $row): string => (string)$row['username'], $solverRows);
 
+$wrongStmt = db()->prepare('SELECT COUNT(*) FROM submissions WHERE user_id=? AND challenge_id=? AND is_correct=0');
+$wrongStmt->execute([$userId, $id]);
+$wrongAttempts = (int)$wrongStmt->fetchColumn();
+
+if (!function_exists('render_challenge_desc')) {
+    function render_challenge_desc(string $raw): string
+    {
+        $s = htmlspecialchars($raw, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $s = preg_replace('/```(.*?)```/s', '<pre class="bg-dark text-success p-3 rounded overflow-auto"><code>$1</code></pre>', $s) ?? $s;
+        $s = preg_replace('/`([^`]+)`/', '<code class="bg-light px-1 rounded border" style="font-size:.88em;">$1</code>', $s) ?? $s;
+        $s = preg_replace('/\*\*(.+?)\*\*/', '<strong>$1</strong>', $s) ?? $s;
+        $s = nl2br($s);
+        $s = preg_replace_callback(
+            '/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/',
+            static fn($m) => '<a href="' . htmlspecialchars($m[2], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" target="_blank" rel="noopener">' . $m[1] . '</a>',
+            $s
+        ) ?? $s;
+        return $s;
+    }
+}
+
 include __DIR__ . '/header.php';
 ?>
 
@@ -76,10 +108,30 @@ include __DIR__ . '/header.php';
   <div class="col-lg-8">
     <div class="card h-100">
       <div class="card-body p-4">
-        <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-          <span class="badge bg-secondary"><?= e((string)$c['category']) ?></span>
-          <span class="badge bg-primary"><?= e((string)$displayPoints) ?> pts</span>
-          <span class="badge <?= $solved ? 'bg-success' : 'text-bg-light border text-primary border-primary' ?>"><?= $solved ? 'Solved' : 'Open' ?></span>
+        <?php
+          $catKey = category_key((string)$c['category']);
+          $catIconMap = ['web' => 'globe', 'crypto' => 'lock', 'forensics' => 'search', 'pwn' => 'terminal', 'linux' => 'terminal-fill'];
+          $catIcon = $catIconMap[$catKey] ?? 'puzzle';
+        ?>
+        <div class="d-flex align-items-start gap-3 mb-3">
+          <div class="cat-icon-box cat-<?= e($catKey) ?>">
+            <i class="bi bi-<?= e($catIcon) ?>"></i>
+          </div>
+          <div class="flex-grow-1">
+            <h1 class="page-title mb-1"><?= e((string)$c['title']) ?></h1>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              <span class="badge bg-secondary"><?= e((string)$c['category']) ?></span>
+              <span class="badge bg-primary"><?= e((string)$displayPoints) ?> pts</span>
+              <span class="badge <?= $solved ? 'bg-success' : 'bg-light text-primary border border-primary' ?>">
+                <?= $solved ? '✓ Solved' : 'Unsolved' ?>
+              </span>
+              <?php if ($firstBlood): ?>
+                <span class="badge" style="background:#fef3c7;color:#92400e;border:1px solid #fcd34d;">
+                  🩸 First Blood: @<?= e((string)$firstBlood) ?>
+                </span>
+              <?php endif; ?>
+            </div>
+          </div>
         </div>
 
         <?php if ($scoringType === 'dynamic'): ?>
@@ -88,10 +140,8 @@ include __DIR__ . '/header.php';
           </p>
         <?php endif; ?>
 
-        <h1 class="page-title mb-3"><?= e((string)$c['title']) ?></h1>
-
-        <div class="challenge-description mb-3" style="white-space: pre-wrap;">
-          <?= linkify((string)$c['description']) ?>
+        <div class="challenge-description mb-3">
+          <?= render_challenge_desc((string)$c['description']) ?>
         </div>
 
         <div class="accordion" id="solverAccordion">
@@ -193,6 +243,12 @@ include __DIR__ . '/header.php';
         <?php if ($solved): ?>
           <div class="alert alert-success mb-3">You already solved this challenge.</div>
         <?php else: ?>
+          <?php if ($attsExhausted): ?>
+            <div class="alert alert-danger">
+              <i class="bi bi-x-octagon"></i> You have used all <?= e((string)$maxAttempts) ?> attempts for this challenge.
+            </div>
+          <?php endif; ?>
+
           <form method="post" action="<?= e(BASE_URL) ?>/submit_flag.php">
             <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
             <input type="hidden" name="challenge_id" value="<?= e((string)$id) ?>">
@@ -200,10 +256,32 @@ include __DIR__ . '/header.php';
             <div class="mb-3">
               <label class="form-label" for="flag">Flag</label>
               <input id="flag" class="form-control" name="flag" placeholder="ccd{...}" required>
+
+              <?php if ($maxAttempts > 0 && !$attsExhausted): ?>
+                <div class="d-flex align-items-center gap-2 mt-2">
+                  <div class="progress flex-grow-1" style="height:5px;">
+                    <div class="progress-bar <?= $attemptsLeft <= 2 ? 'bg-danger' : ($attemptsLeft <= 5 ? 'bg-warning' : 'bg-success') ?>"
+                         style="width:<?= e((string)floor($attemptsLeft / $maxAttempts * 100)) ?>%"></div>
+                  </div>
+                  <small class="text-muted text-nowrap"><?= e((string)$attemptsLeft) ?> left</small>
+                </div>
+              <?php endif; ?>
+
+              <?php if ($flagType === 'regex'): ?>
+                <div class="form-text">⚙️ This challenge uses pattern-based flag matching.</div>
+              <?php elseif ($flagType === 'case_insensitive'): ?>
+                <div class="form-text">⚙️ Flag matching is case-insensitive.</div>
+              <?php endif; ?>
             </div>
 
-            <button class="btn btn-primary w-100" type="submit">Submit</button>
+            <button class="btn btn-primary w-100" type="submit" <?= $attsExhausted ? 'disabled' : '' ?>>Submit</button>
           </form>
+
+          <?php if ($wrongAttempts > 0): ?>
+            <p class="text-danger small mt-2 mb-0">
+              <i class="bi bi-x-circle"></i> <?= e((string)$wrongAttempts) ?> incorrect attempt(s)
+            </p>
+          <?php endif; ?>
         <?php endif; ?>
 
         <hr>

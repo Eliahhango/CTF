@@ -165,10 +165,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $decaySolves = sanitize_int($_POST['decay_solves'] ?? 50, 50, 1);
         $scoringTypeRaw = strtolower(sanitize_str($_POST['scoring_type'] ?? 'static', 20));
         $scoringType = in_array($scoringTypeRaw, ['static', 'dynamic'], true) ? $scoringTypeRaw : 'static';
+        $flagTypeRaw = strtolower(sanitize_str($_POST['flag_type'] ?? 'static', 30));
+        $flagType = in_array($flagTypeRaw, ['static', 'regex', 'case_insensitive'], true) ? $flagTypeRaw : 'static';
+        $maxAttempts = max(0, sanitize_int($_POST['max_attempts'] ?? 0, 0, 0, 9999));
+        $prereqIdRaw = max(0, sanitize_int($_POST['prerequisite_id'] ?? 0, 0, 0));
+        $prereqId = $prereqIdRaw > 0 ? $prereqIdRaw : null;
         $description = sanitize_str($_POST['description'] ?? '', 20000);
-        $flag = sanitize_str($_POST['flag'] ?? '', 255);
+        $flagPlain = sanitize_str($_POST['flag'] ?? '', 255);
 
-        if ($title === '' || $category === '' || $points <= 0 || $description === '' || $flag === '') {
+        if ($title === '' || $category === '' || $points <= 0 || $description === '' || $flagPlain === '') {
             flash_set('danger', 'All fields required.');
             redirect('/admin_challenges.php');
         }
@@ -183,12 +188,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $points = $initialPoints;
         }
 
-        $flag_hash = password_hash($flag, PASSWORD_DEFAULT);
+        if ($flagType === 'static') {
+            $flagHash = password_hash($flagPlain, PASSWORD_BCRYPT);
+            $flagPlaintextStored = null;
+        } else {
+            $flagHash = '';
+            $flagPlaintextStored = flag_encrypt($flagPlain);
+        }
+
         $stmt = $pdo->prepare(
-            'INSERT INTO challenges (title,category,points,initial_points,floor_points,decay_solves,scoring_type,description,flag_hash,is_active,created_at)
-             VALUES (?,?,?,?,?,?,?,?,?,1,NOW())'
+            'INSERT INTO challenges (title,category,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,description,flag_hash,flag_type,flag_plaintext,prerequisite_id,is_active,created_at)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,NOW())'
         );
-        $stmt->execute([$title, $category, $points, $initialPoints, $floorPoints, $decaySolves, $scoringType, $description, $flag_hash]);
+        $stmt->execute([
+            $title,
+            $category,
+            $points,
+            $initialPoints,
+            $floorPoints,
+            $decaySolves,
+            $scoringType,
+            $maxAttempts,
+            $description,
+            $flagHash,
+            $flagType,
+            $flagPlaintextStored,
+            $prereqId,
+        ]);
         $newId = (int)$pdo->lastInsertId();
         $challengeId = $newId;
 
@@ -259,8 +285,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $decaySolves = sanitize_int($_POST['decay_solves'] ?? 50, 50, 1);
         $scoringTypeRaw = strtolower(sanitize_str($_POST['scoring_type'] ?? 'static', 20));
         $scoringType = in_array($scoringTypeRaw, ['static', 'dynamic'], true) ? $scoringTypeRaw : 'static';
+        $flagTypeRaw = strtolower(sanitize_str($_POST['flag_type'] ?? 'static', 30));
+        $flagType = in_array($flagTypeRaw, ['static', 'regex', 'case_insensitive'], true) ? $flagTypeRaw : 'static';
+        $maxAttempts = max(0, sanitize_int($_POST['max_attempts'] ?? 0, 0, 0, 9999));
+        $prereqIdRaw = max(0, sanitize_int($_POST['prerequisite_id'] ?? 0, 0, 0));
+        $prereqId = $prereqIdRaw > 0 ? $prereqIdRaw : null;
         $description = sanitize_str($_POST['description'] ?? '', 20000);
-        $flag = sanitize_str($_POST['flag'] ?? '', 255);
+        $flagPlain = sanitize_str($_POST['flag'] ?? '', 255);
 
         if ($id <= 0 || $title === '' || $category === '' || $points <= 0 || $description === '') {
             flash_set('danger', 'Invalid update.');
@@ -276,23 +307,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($scoringType === 'dynamic') {
             $points = $initialPoints;
         }
-
-        if ($flag !== '') {
-            $flag_hash = password_hash($flag, PASSWORD_DEFAULT);
-            $stmt = $pdo->prepare(
-                'UPDATE challenges
-                 SET title=?,category=?,points=?,initial_points=?,floor_points=?,decay_solves=?,scoring_type=?,description=?,flag_hash=?
-                 WHERE id=?'
-            );
-            $stmt->execute([$title, $category, $points, $initialPoints, $floorPoints, $decaySolves, $scoringType, $description, $flag_hash, $id]);
-        } else {
-            $stmt = $pdo->prepare(
-                'UPDATE challenges
-                 SET title=?,category=?,points=?,initial_points=?,floor_points=?,decay_solves=?,scoring_type=?,description=?
-                 WHERE id=?'
-            );
-            $stmt->execute([$title, $category, $points, $initialPoints, $floorPoints, $decaySolves, $scoringType, $description, $id]);
+        if ($prereqId === $id) {
+            $prereqId = null;
         }
+
+        $currentFlagStmt = $pdo->prepare('SELECT flag_hash, flag_type, flag_plaintext FROM challenges WHERE id=? LIMIT 1');
+        $currentFlagStmt->execute([$id]);
+        $currentFlagRow = $currentFlagStmt->fetch();
+        if (!$currentFlagRow) {
+            flash_set('danger', 'Challenge not found.');
+            redirect('/admin_challenges.php');
+        }
+
+        if ($flagPlain === '') {
+            $existingType = (string)($currentFlagRow['flag_type'] ?? 'static');
+            if ($flagType !== $existingType) {
+                flash_set('danger', 'Provide a new flag when changing flag type.');
+                redirect('/admin_challenges.php');
+            }
+            if ($flagType === 'static') {
+                $flagHash = (string)($currentFlagRow['flag_hash'] ?? '');
+                $flagPlaintextStored = null;
+            } else {
+                $flagHash = '';
+                $flagPlaintextStored = (string)($currentFlagRow['flag_plaintext'] ?? '');
+            }
+        } else {
+            if ($flagType === 'static') {
+                $flagHash = password_hash($flagPlain, PASSWORD_BCRYPT);
+                $flagPlaintextStored = null;
+            } else {
+                $flagHash = '';
+                $flagPlaintextStored = flag_encrypt($flagPlain);
+            }
+        }
+
+        $stmt = $pdo->prepare(
+            'UPDATE challenges
+             SET title=?,category=?,points=?,initial_points=?,floor_points=?,decay_solves=?,scoring_type=?,max_attempts=?,description=?,flag_hash=?,flag_type=?,flag_plaintext=?,prerequisite_id=?
+             WHERE id=?'
+        );
+        $stmt->execute([
+            $title,
+            $category,
+            $points,
+            $initialPoints,
+            $floorPoints,
+            $decaySolves,
+            $scoringType,
+            $maxAttempts,
+            $description,
+            $flagHash,
+            $flagType,
+            $flagPlaintextStored,
+            $prereqId,
+            $id,
+        ]);
 
         $pdo->prepare('DELETE FROM hints WHERE challenge_id=?')->execute([$id]);
         $hints = is_array($_POST['hints'] ?? null) ? $_POST['hints'] : [];
@@ -329,9 +399,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $challs = $pdo->query(
-    'SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,description,is_active,created_at
+    'SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,flag_type,prerequisite_id,description,is_active,created_at
      FROM challenges
      ORDER BY created_at DESC'
+)->fetchAll();
+
+$allChallenges = $pdo->query(
+    'SELECT id, title FROM challenges WHERE is_active=1 ORDER BY title ASC'
 )->fetchAll();
 
 $challengeFilesById = [];
@@ -455,6 +529,32 @@ include __DIR__ . '/header.php';
           <div class="mb-3">
             <label class="form-label">Flag</label>
             <input class="form-control" name="flag" required placeholder="ccd{...}">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Flag Type</label>
+            <select class="form-select flag-type-select" name="flag_type" id="flagTypeSelect" data-note-target="flagTypeNote">
+              <option value="static">Static (bcrypt exact match)</option>
+              <option value="case_insensitive">Case Insensitive</option>
+              <option value="regex">Regex Pattern</option>
+            </select>
+            <div class="form-text" id="flagTypeNote">Static flags are bcrypt-hashed for security.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Max Attempts</label>
+            <input type="number" class="form-control" name="max_attempts" value="0" min="0" max="9999">
+            <div class="form-text">0 = unlimited. Recommended: 10-50 for hard challenges.</div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Prerequisite Challenge (optional)</label>
+            <select class="form-select" name="prerequisite_id">
+              <option value="0">None</option>
+              <?php foreach ($allChallenges as $ac): ?>
+                <option value="<?= e((string)$ac['id']) ?>"><?= e((string)$ac['title']) ?></option>
+              <?php endforeach; ?>
+            </select>
           </div>
 
           <div class="mb-3">
@@ -609,6 +709,40 @@ include __DIR__ . '/header.php';
                     </div>
 
                     <div class="mb-3">
+                      <label class="form-label">Flag Type</label>
+                      <select
+                        class="form-select flag-type-select"
+                        name="flag_type"
+                        id="flagTypeSelectEdit<?= e((string)$c['id']) ?>"
+                        data-note-target="flagTypeNoteEdit<?= e((string)$c['id']) ?>"
+                      >
+                        <option value="static" <?= ($c['flag_type'] ?? 'static') === 'static' ? 'selected' : '' ?>>Static (bcrypt exact match)</option>
+                        <option value="case_insensitive" <?= ($c['flag_type'] ?? 'static') === 'case_insensitive' ? 'selected' : '' ?>>Case Insensitive</option>
+                        <option value="regex" <?= ($c['flag_type'] ?? 'static') === 'regex' ? 'selected' : '' ?>>Regex Pattern</option>
+                      </select>
+                      <div class="form-text" id="flagTypeNoteEdit<?= e((string)$c['id']) ?>">Static flags are bcrypt-hashed for security.</div>
+                    </div>
+
+                    <div class="mb-3">
+                      <label class="form-label">Max Attempts</label>
+                      <input type="number" class="form-control" name="max_attempts" value="<?= e((string)$c['max_attempts']) ?>" min="0" max="9999">
+                      <div class="form-text">0 = unlimited. Recommended: 10-50 for hard challenges.</div>
+                    </div>
+
+                    <div class="mb-3">
+                      <label class="form-label">Prerequisite Challenge (optional)</label>
+                      <select class="form-select" name="prerequisite_id">
+                        <option value="0">None</option>
+                        <?php foreach ($allChallenges as $ac): ?>
+                          <?php if ((int)$ac['id'] === (int)$c['id']) continue; ?>
+                          <option value="<?= e((string)$ac['id']) ?>" <?= (int)($c['prerequisite_id'] ?? 0) === (int)$ac['id'] ? 'selected' : '' ?>>
+                            <?= e((string)$ac['title']) ?>
+                          </option>
+                        <?php endforeach; ?>
+                      </select>
+                    </div>
+
+                    <div class="mb-3">
                       <label class="form-label">Hints (optional)</label>
                       <input type="hidden" name="hint_action" value="update_hints">
                       <div id="editHintList<?= e((string)$c['id']) ?>">
@@ -713,6 +847,25 @@ function removeHintRow(btn) {
 
     radios.forEach((radio) => radio.addEventListener('change', sync));
     sync();
+  });
+
+  function syncFlagTypeNote(selectEl) {
+    const targetId = selectEl.getAttribute('data-note-target');
+    if (!targetId) return;
+    const note = document.getElementById(targetId);
+    if (!note) return;
+
+    if (selectEl.value === 'static') {
+      note.textContent = 'Static flags are bcrypt-hashed for security.';
+    } else {
+      note.textContent = 'Stored encrypted. Regex example: /^ccd\\{[a-f0-9]+\\}$/i';
+    }
+  }
+
+  const flagTypeSelects = Array.from(document.querySelectorAll('.flag-type-select'));
+  flagTypeSelects.forEach((selectEl) => {
+    selectEl.addEventListener('change', () => syncFlagTypeNote(selectEl));
+    syncFlagTypeNote(selectEl);
   });
 
   const createHintList = document.getElementById('createHintList');

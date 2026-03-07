@@ -24,7 +24,7 @@ if ($user_id <= 0 || $challenge_id <= 0 || $flag === '') {
 rate_limit_submit($user_id);
 
 $stmt = db()->prepare(
-    'SELECT id,title,points,initial_points,floor_points,decay_solves,scoring_type,flag_hash
+    'SELECT id,title,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,flag_type,flag_hash,flag_plaintext
      FROM challenges
      WHERE id=? AND is_active=1'
 );
@@ -42,9 +42,21 @@ if ($stmt2->fetchColumn()) {
     redirect('/challenge.php?id=' . $challenge_id);
 }
 
-$ip = ip_address();
-$is_correct = password_verify($flag, (string)($c['flag_hash'] ?? ''));
 $pdo = db();
+$maxAttempts = (int)($c['max_attempts'] ?? 0);
+if ($maxAttempts > 0) {
+    $wrongCountStmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM submissions WHERE user_id=? AND challenge_id=? AND is_correct=0'
+    );
+    $wrongCountStmt->execute([$user_id, $challenge_id]);
+    if ((int)$wrongCountStmt->fetchColumn() >= $maxAttempts) {
+        flash_set('danger', 'Maximum attempts reached. You cannot submit again.');
+        redirect('/challenge.php?id=' . $challenge_id);
+    }
+}
+
+$ip = ip_address();
+$is_correct = verify_flag($flag, $c);
 
 try {
     // Always log submission attempts with source IP.
@@ -76,6 +88,146 @@ try {
     $pdo->prepare('INSERT INTO solves (user_id,challenge_id,points_awarded,solved_at) VALUES (?,?,?,NOW())')
         ->execute([$user_id, $challenge_id, $pointsAwarded]);
     $pdo->commit();
+
+    // CHECK 1: copied correct flag
+    try {
+        $copyStmt = $pdo->prepare(
+            'SELECT DISTINCT user_id FROM submissions
+             WHERE challenge_id=? AND submitted_flag=? AND is_correct=1 AND user_id != ?
+             LIMIT 10'
+        );
+        $copyStmt->execute([$challenge_id, $flag, $user_id]);
+        $copiedFrom = $copyStmt->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!empty($copiedFrom)) {
+            raise_cheat_alert(
+                $user_id,
+                $challenge_id,
+                'copied_correct_flag',
+                'Submitted exact correct flag already used by user_id(s): ' . implode(',', $copiedFrom),
+                'high'
+            );
+
+            foreach ($copiedFrom as $srcUid) {
+                raise_cheat_alert(
+                    (int)$srcUid,
+                    $challenge_id,
+                    'copied_correct_flag',
+                    'Their correct flag was submitted verbatim by user_id: ' . $user_id,
+                    'high'
+                );
+            }
+
+            $pdo->prepare('UPDATE submissions SET flagged=1 WHERE challenge_id=? AND submitted_flag=? AND is_correct=1')
+                ->execute([$challenge_id, $flag]);
+        }
+    } catch (Throwable $e) {
+        app_log_error('cheat_check_1', ['e' => $e->getMessage()]);
+    }
+
+    // CHECK 2: shared wrong flag clusters
+    try {
+        $wrongStmt = $pdo->prepare(
+            'SELECT submitted_flag FROM submissions
+             WHERE user_id=? AND challenge_id=? AND is_correct=0
+             ORDER BY created_at DESC LIMIT 20'
+        );
+        $wrongStmt->execute([$user_id, $challenge_id]);
+        $myWrongs = $wrongStmt->fetchAll(PDO::FETCH_COLUMN);
+
+        foreach ($myWrongs as $wrongFlag) {
+            $otherUsersStmt = $pdo->prepare(
+                'SELECT COUNT(DISTINCT user_id) FROM submissions
+                 WHERE challenge_id=? AND submitted_flag=? AND user_id != ? AND is_correct=0
+                 AND created_at >= NOW() - INTERVAL 48 HOUR'
+            );
+            $otherUsersStmt->execute([$challenge_id, $wrongFlag, $user_id]);
+            $otherCount = (int)$otherUsersStmt->fetchColumn();
+
+            if ($otherCount >= 2) {
+                raise_cheat_alert(
+                    $user_id,
+                    $challenge_id,
+                    'shared_wrong_flag',
+                    'Wrong flag string "' . substr((string)$wrongFlag, 0, 30) . '..." also submitted by ' . $otherCount . ' other users',
+                    'high'
+                );
+                break;
+            }
+        }
+    } catch (Throwable $e) {
+        app_log_error('cheat_check_2', ['e' => $e->getMessage()]);
+    }
+
+    // CHECK 3: speed solve (fast follow)
+    try {
+        $prevSolveStmt = $pdo->prepare(
+            'SELECT solved_at FROM solves WHERE challenge_id=? AND user_id != ? ORDER BY solved_at DESC LIMIT 1'
+        );
+        $prevSolveStmt->execute([$challenge_id, $user_id]);
+        $prevSolvedAt = $prevSolveStmt->fetchColumn();
+
+        if ($prevSolvedAt) {
+            $gap = time() - strtotime((string)$prevSolvedAt);
+            if ($gap >= 0 && $gap <= 120) {
+                raise_cheat_alert(
+                    $user_id,
+                    $challenge_id,
+                    'speed_solve',
+                    'Solved ' . $gap . ' seconds after another user solved the same challenge',
+                    'medium'
+                );
+            }
+        }
+    } catch (Throwable $e) {
+        app_log_error('cheat_check_3', ['e' => $e->getMessage()]);
+    }
+
+    // CHECK 4: rapid solves across challenges
+    try {
+        $rapidStmt = $pdo->prepare(
+            'SELECT COUNT(*) FROM solves WHERE user_id=? AND solved_at >= NOW() - INTERVAL 8 MINUTE'
+        );
+        $rapidStmt->execute([$user_id]);
+        $recentSolves = (int)$rapidStmt->fetchColumn();
+
+        if ($recentSolves >= 4) {
+            raise_cheat_alert(
+                $user_id,
+                $challenge_id,
+                'rapid_solves',
+                $recentSolves . ' challenges solved in under 8 minutes',
+                'low'
+            );
+        }
+    } catch (Throwable $e) {
+        app_log_error('cheat_check_4', ['e' => $e->getMessage()]);
+    }
+
+    // CHECK 5: same IP solves on same challenge by other active users
+    try {
+        $sameIpStmt = $pdo->prepare(
+            "SELECT DISTINCT s2.user_id FROM submissions s1
+             JOIN submissions s2 ON s2.ip_addr=s1.ip_addr AND s2.user_id != s1.user_id AND s2.is_correct=1 AND s2.challenge_id=?
+             JOIN users u2 ON u2.id = s2.user_id AND u2.status='active' AND u2.role='user'
+             WHERE s1.user_id=? AND s1.is_correct=1 AND s1.challenge_id=?
+             LIMIT 5"
+        );
+        $sameIpStmt->execute([$challenge_id, $user_id, $challenge_id]);
+        $sameIpUsers = $sameIpStmt->fetchAll(PDO::FETCH_COLUMN);
+
+        if (!empty($sameIpUsers)) {
+            raise_cheat_alert(
+                $user_id,
+                $challenge_id,
+                'same_ip_solve',
+                'Challenge also solved from same IP by user_id(s): ' . implode(',', $sameIpUsers),
+                'medium'
+            );
+        }
+    } catch (Throwable $e) {
+        app_log_error('cheat_check_5', ['e' => $e->getMessage()]);
+    }
 
     flash_set('success', 'Correct! Points awarded.');
 } catch (PDOException $e) {

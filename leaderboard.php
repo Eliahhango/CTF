@@ -12,6 +12,7 @@ $offset = ($page - 1) * $perPage;
 $cutoff = scoreboard_cutoff_datetime();
 
 $totalPlayers = (int)db()->query("SELECT COUNT(*) FROM users WHERE status='active' AND role='user'")->fetchColumn();
+$totalChalls = (int)db()->query('SELECT COUNT(*) FROM challenges WHERE is_active=1')->fetchColumn();
 $totalPages = max(1, (int)ceil($totalPlayers / $perPage));
 if ($page > $totalPages) {
     $page = $totalPages;
@@ -90,6 +91,23 @@ if ($topIds) {
     }
 }
 
+$currentUserId = sanitize_int($u['id'] ?? 0, 0, 1);
+$currentUserSeen = false;
+$currentUserPinned = null;
+if ($currentUserId > 0) {
+    $currentSql = "SELECT u.id, u.username, COALESCE(SUM(s.points_awarded),0) AS points, COUNT(s.id) AS solves, MAX(s.solved_at) AS last_solve
+                   FROM users u
+                   LEFT JOIN solves s {$joinCondition}
+                   WHERE u.id=? AND u.status='active' AND u.role='user'
+                   GROUP BY u.id
+                   LIMIT 1";
+    $currentParams = $params;
+    $currentParams[] = $currentUserId;
+    $currentStmt = db()->prepare($currentSql);
+    $currentStmt->execute($currentParams);
+    $currentUserPinned = $currentStmt->fetch() ?: null;
+}
+
 include __DIR__ . '/header.php';
 ?>
 
@@ -112,15 +130,16 @@ include __DIR__ . '/header.php';
     <div class="table-responsive">
       <table class="table table-striped align-middle leaderboard-table">
         <thead>
-          <tr>
-            <th style="width: 110px;">Rank</th>
-            <th>User</th>
-            <th style="width: 120px;" class="text-end">Points</th>
-            <th style="width: 100px;" class="text-end">Solves</th>
-            <th style="width: 180px;" class="text-end">Last Solve</th>
-          </tr>
-        </thead>
-        <tbody>
+            <tr>
+              <th style="width: 110px;">Rank</th>
+              <th>User</th>
+              <th style="width: 120px;" class="text-end">Points</th>
+              <th style="width: 100px;" class="text-end">Solves</th>
+              <th class="text-end" style="width:90px;">Complete</th>
+              <th style="width: 180px;" class="text-end">Last Solve</th>
+            </tr>
+          </thead>
+          <tbody>
           <?php $i = $offset + 1; foreach ($rows as $r): ?>
             <?php
               $rank = $i++;
@@ -129,12 +148,16 @@ include __DIR__ . '/header.php';
               if ($rank === 1) {
                 $rowClasses[] = 'rank-first';
               }
+              if ($rank === 2) $rowClasses[] = 'rank-silver';
+              if ($rank === 3) $rowClasses[] = 'rank-bronze';
               if ($isCurrent) {
                 $rowClasses[] = 'rank-current';
+                $currentUserSeen = true;
               }
+              $pct = $totalChalls > 0 ? round((int)$r['solves'] / $totalChalls * 100) : 0;
             ?>
             <tr class="<?= e(implode(' ', $rowClasses)) ?>">
-              <td class="fw-semibold">#<?= e((string)$rank) ?></td>
+              <td class="fw-semibold rank-medal">#<?= e((string)$rank) ?></td>
               <td>
                 <a href="<?= e(BASE_URL) ?>/profile.php?username=<?= e(urlencode((string)$r['username'])) ?>">
                   @<?= e((string)$r['username']) ?>
@@ -142,9 +165,26 @@ include __DIR__ . '/header.php';
               </td>
               <td class="points-cell"><?= e((string)$r['points']) ?></td>
               <td class="text-end"><?= e((string)$r['solves']) ?></td>
+              <td class="text-end"><span class="badge bg-light text-dark border"><?= e((string)$pct) ?>%</span></td>
               <td class="text-end text-muted"><?= e((string)($r['last_solve'] ?? '-')) ?></td>
             </tr>
           <?php endforeach; ?>
+          <?php if (!$currentUserSeen && $currentUserPinned): ?>
+            <?php $pinnedPct = $totalChalls > 0 ? round((int)$currentUserPinned['solves'] / $totalChalls * 100) : 0; ?>
+            <tr style="background:#eff6ff;font-style:italic;">
+              <td class="fw-semibold">—</td>
+              <td>
+                <a href="<?= e(BASE_URL) ?>/profile.php?username=<?= e(urlencode((string)$currentUserPinned['username'])) ?>">
+                  @<?= e((string)$currentUserPinned['username']) ?>
+                </a>
+                <span class="text-muted ms-1">You (not on this page)</span>
+              </td>
+              <td class="points-cell"><?= e((string)$currentUserPinned['points']) ?></td>
+              <td class="text-end"><?= e((string)$currentUserPinned['solves']) ?></td>
+              <td class="text-end"><span class="badge bg-light text-dark border"><?= e((string)$pinnedPct) ?>%</span></td>
+              <td class="text-end text-muted"><?= e((string)($currentUserPinned['last_solve'] ?? '-')) ?></td>
+            </tr>
+          <?php endif; ?>
         </tbody>
       </table>
     </div>

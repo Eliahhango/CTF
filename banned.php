@@ -5,15 +5,18 @@ require_login();
 include __DIR__ . '/header.php';
 ?>
 
-<section class="status-screen">
-  <div class="status-box status-banned">
-    <pre class="status-ascii">  /!\\
- ( x_x )
-  /_|_\\</pre>
-    <h1 class="status-title">[ ACCESS DENIED ]</h1>
-    <p class="status-sub mb-2">THIS ACCOUNT HAS BEEN TERMINATED</p>
-    <p class="small text-muted mb-0">Contact the instructor if you believe this action was applied in error.</p>
+<div class="status-page-wrap">
+  <div class="status-card" style="border-color:rgba(220,38,38,.35);">
+    <span class="status-emoji">??</span>
+    <h1 class="status-heading" style="color:#dc2626;">Account Suspended</h1>
+    <p class="status-body">
+      Your account has been suspended from this platform.<br>
+      If you believe this is a mistake, contact your instructor directly.
+    </p>
+    <div class="status-actions">
+      <a href="<?= e(BASE_URL) ?>/logout.php" class="btn btn-outline-danger">Sign Out</a>
+    </div>
   </div>
-</section>
+</div>
 
 <?php include __DIR__ . '/footer.php'; ?>

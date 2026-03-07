@@ -569,6 +569,34 @@ if ($now < $startTs) {
     .status-banned { border-top: 4px solid var(--danger); }
     .status-403 { border-top: 4px solid var(--danger); }
 
+    .status-page-wrap {
+      min-height: calc(100vh - 160px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 2rem 1rem;
+    }
+    .status-card {
+      max-width: 500px; width: 100%;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 3rem 2rem;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(15,23,42,.08);
+    }
+    .status-card .status-emoji { font-size: 4rem; display: block; margin-bottom: 1rem; line-height: 1; }
+    .status-card .status-heading { font-size: 1.7rem; font-weight: 800; margin-bottom: .5rem; }
+    .status-card .status-body { color: #64748b; line-height: 1.7; margin-bottom: 1.5rem; }
+    .status-card .status-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: .6rem; }
+
+    @keyframes pendingPulse {
+      0%,100% { border-color: rgba(217,119,6,.25); box-shadow: 0 0 0 0 rgba(217,119,6,.2); }
+      50%      { border-color: rgba(217,119,6,.6);  box-shadow: 0 0 0 8px rgba(217,119,6,0); }
+    }
+    .status-card.pending-card {
+      border-color: rgba(217,119,6,.4);
+      animation: pendingPulse 2.5s ease-in-out infinite;
+    }
+
     .ops-footer {
       border-top: 1px solid var(--border);
       background: #ffffff;
@@ -638,6 +666,83 @@ if ($now < $startTs) {
     .btn-cyan { background: transparent; color: #0891b2; border: 1px solid #0891b2; }
     .btn-cyan:hover { background: #0891b2; color: #fff; }
 
+    /* ── Page fade-in ── */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+    main.container { animation: fadeUp .22s ease both; }
+
+    /* ── Loading bar (top of page) ── */
+    #top-bar { position:fixed; top:0; left:0; height:3px; width:0; z-index:9999;
+      background:linear-gradient(90deg,#2563eb,#7c3aed,#2563eb); background-size:200% 100%;
+      animation:barShimmer 1.2s linear infinite; transition:width .4s ease; }
+    @keyframes barShimmer { 0%{background-position:0%} 100%{background-position:200%} }
+
+    /* ── Card hover lift ── */
+    .card { transition:box-shadow .18s ease, transform .18s ease; }
+    .card:hover { box-shadow:0 6px 20px rgba(15,23,42,.1) !important; }
+
+    /* ── Challenge card specific ── */
+    .challenge-card {
+      position:relative; cursor:pointer;
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+    .challenge-card:hover { transform:translateY(-3px); box-shadow:0 8px 28px rgba(15,23,42,.13) !important; border-color:#2563eb !important; }
+    .challenge-card.is-solved { border-color:#16a34a !important; }
+    .challenge-card.is-solved:hover { border-color:#15803d !important; }
+    .challenge-card.is-locked { opacity:.6; cursor:not-allowed; }
+    .challenge-card.is-locked:hover { transform:none !important; border-color:inherit !important; }
+
+    /* Solved tick badge on challenge card */
+    .solved-tick {
+      position:absolute; top:10px; right:10px;
+      width:22px; height:22px; border-radius:50%;
+      background:#16a34a; color:#fff;
+      display:flex; align-items:center; justify-content:center;
+      font-size:11px; line-height:1;
+    }
+
+    /* ── Difficulty dots ── */
+    .diff-dots { display:inline-flex; gap:3px; vertical-align:middle; margin-left:3px; }
+    .diff-dot { width:7px; height:7px; border-radius:50%; background:#e2e8f0; }
+    .diff-dot.on { background:currentColor; }
+    .diff-easy  { color:#16a34a; }
+    .diff-medium{ color:#d97706; }
+    .diff-hard  { color:#dc2626; }
+
+    /* ── Category icon box ── */
+    .cat-icon-box {
+      width:48px; height:48px; border-radius:10px; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center; font-size:1.4rem;
+    }
+    .cat-web       { background:#e0f2fe; color:#0284c7; }
+    .cat-crypto    { background:#ede9fe; color:#7c3aed; }
+    .cat-forensics { background:#fef3c7; color:#b45309; }
+    .cat-pwn       { background:#fee2e2; color:#b91c1c; }
+    .cat-linux     { background:#dcfce7; color:#15803d; }
+    .cat-default   { background:#f1f5f9; color:#475569; }
+
+    /* ── Empty state ── */
+    .empty-state { text-align:center; padding:3rem 1rem; }
+    .empty-state-icon { font-size:3rem; color:#cbd5e1; display:block; margin-bottom:.75rem; }
+    .empty-state-title { font-weight:700; color:#334155; margin-bottom:.35rem; }
+    .empty-state-text  { color:#64748b; margin:0; }
+
+    /* ── Leaderboard medals ── */
+    .rank-medal { font-size:1.1rem; }
+    tr.rank-first td:first-child::before { content:"🥇 "; }
+    tr.rank-silver td:first-child::before { content:"🥈 "; }
+    tr.rank-bronze td:first-child::before { content:"🥉 "; }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width:5px; }
+    ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px; }
+    ::-webkit-scrollbar-thumb:hover { background:#94a3b8; }
+
+    /* ── Alert left border accent ── */
+    .alert-success { border-left:4px solid #16a34a; }
+    .alert-danger  { border-left:4px solid #dc2626; }
+    .alert-info    { border-left:4px solid #2563eb; }
+    .alert-warning { border-left:4px solid #d97706; }
+
     @media (max-width: 991.98px) {
       .navbar-nav .app-nav-link {
         border-bottom: none;
@@ -667,6 +772,17 @@ if ($now < $startTs) {
 </head>
 
 <body>
+<div id="top-bar"></div>
+<script>
+  var _tb = document.getElementById('top-bar');
+  if (_tb) {
+    _tb.style.width = '30%';
+    window.addEventListener('load', function() {
+      _tb.style.width = '100%';
+      setTimeout(function(){ _tb.style.opacity='0'; }, 400);
+    });
+  }
+</script>
 <header class="app-navbar">
   <nav class="navbar navbar-expand-lg navbar-dark">
     <div class="container">

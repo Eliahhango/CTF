@@ -5,12 +5,19 @@ require_login();
 include __DIR__ . '/header.php';
 ?>
 
-<section class="status-screen">
-  <div class="status-box status-pending">
-    <h1 class="status-title">[ PENDING ]</h1>
-    <p class="status-sub mb-2">ACCESS REQUEST QUEUED - AWAITING OPERATOR APPROVAL</p>
-    <p class="small text-muted mb-0">Your instructor must approve your account before challenge access is enabled.</p>
+<div class="status-page-wrap">
+  <div class="status-card pending-card">
+    <span class="status-emoji">?</span>
+    <h1 class="status-heading" style="color:#d97706;">Awaiting Approval</h1>
+    <p class="status-body">
+      Your registration is pending instructor approval.<br>
+      You'll be able to access challenges once your account is activated.<br>
+      <span class="text-muted small">?? Tip: Contact your instructor if you've been waiting.</span>
+    </p>
+    <div class="status-actions">
+      <a href="<?= e(BASE_URL) ?>/logout.php" class="btn btn-outline-secondary">Sign Out</a>
+    </div>
   </div>
-</section>
+</div>
 
 <?php include __DIR__ . '/footer.php'; ?>

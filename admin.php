@@ -10,6 +10,7 @@ $active = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE status='active'")->
 $challs = (int)$pdo->query('SELECT COUNT(*) FROM challenges')->fetchColumn();
 $solves = (int)$pdo->query('SELECT COUNT(*) FROM solves')->fetchColumn();
 $announcements = (int)$pdo->query('SELECT COUNT(*) FROM announcements')->fetchColumn();
+$antiCheatAlerts = cheat_alert_count();
 
 $recentSolves = $pdo->query(
     'SELECT s.solved_at, u.username, c.title, s.points_awarded
@@ -84,6 +85,14 @@ include __DIR__ . '/header.php';
       </div>
     </div>
   </div>
+  <div class="col-lg-3 col-md-6">
+    <div class="card stat-card-modern" style="<?= $antiCheatAlerts > 0 ? 'border-color:#d97706;' : '' ?>">
+      <div class="card-body">
+        <div class="stat-card-label">Unreviewed Anti-Cheat Alerts</div>
+        <div class="stat-card-value" style="color:<?= $antiCheatAlerts > 0 ? '#d97706' : '#2563eb' ?>;"><?= e((string)$antiCheatAlerts) ?></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="card mb-3">
@@ -95,6 +104,12 @@ include __DIR__ . '/header.php';
       <a class="btn btn-warning text-white" href="<?= e(BASE_URL) ?>/admin_solves.php">View Solves Log</a>
       <a class="btn btn-outline-primary" href="<?= e(BASE_URL) ?>/admin_announcements.php">Manage Announcements</a>
       <a class="btn btn-outline-dark" href="<?= e(BASE_URL) ?>/admin_audit.php">Admin Audit Log</a>
+      <a href="<?= e(BASE_URL) ?>/admin_anticheat.php" class="btn btn-outline-danger btn-sm">
+        Anti-Cheat
+        <?php $alertCount = cheat_alert_count(); if ($alertCount > 0): ?>
+          <span class="badge bg-danger ms-1"><?= e((string)$alertCount) ?></span>
+        <?php endif; ?>
+      </a>
     </div>
   </div>
 </div>

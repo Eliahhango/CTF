@@ -13,7 +13,9 @@ require_once __DIR__ . '/flash_helpers.php';
 require_once __DIR__ . '/rate_limit_helpers.php';
 require_once __DIR__ . '/auth_helpers.php';
 require_once __DIR__ . '/scoring_helpers.php';
+require_once __DIR__ . '/flag_helpers.php';
 require_once __DIR__ . '/upload_helpers.php';
+require_once __DIR__ . '/cheat_helpers.php';
 require_once __DIR__ . '/ui_helpers.php';
 
 date_default_timezone_set(APP_TIMEZONE);
