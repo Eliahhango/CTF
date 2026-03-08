@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Insert a cheat alert — deduplicated per user+challenge+reason per hour.
+ * Insert a cheat alert - deduplicated per user+challenge+reason per hour.
  */
 function raise_cheat_alert(int $user_id, int $challenge_id, string $reason, string $detail, string $severity = 'medium'): void
 {
@@ -19,13 +19,14 @@ function raise_cheat_alert(int $user_id, int $challenge_id, string $reason, stri
             'INSERT INTO cheat_alerts (user_id, challenge_id, reason, detail, severity, created_at) VALUES (?,?,?,?,?,NOW())'
         )->execute([$user_id, $challenge_id, $reason, $detail, $severity]);
     } catch (Throwable $e) {
-        // Detection must never break the solve flow
-        app_log_error('cheat_alert_insert_failed', ['error' => $e->getMessage()]);
+        if (function_exists('app_log_error')) {
+            app_log_error('cheat_alert_insert_failed', ['error' => $e->getMessage()]);
+        }
     }
 }
 
 /**
- * Returns total unreviewed alert count — used for admin badge.
+ * Returns total unreviewed alert count - used for admin badge.
  */
 function cheat_alert_count(): int
 {

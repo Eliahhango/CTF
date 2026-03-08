@@ -50,23 +50,31 @@ $categoryRows = $categoryStmt->fetchAll();
 $catLabels = array_map(static fn(array $row): string => (string)$row['category'], $categoryRows);
 $catValues = array_map(static fn(array $row): int => (int)$row['cnt'], $categoryRows);
 
-$nextStmt = db()->prepare(
-    'SELECT id, title, category, points FROM challenges
-     WHERE is_active=1 AND id NOT IN (SELECT challenge_id FROM solves WHERE user_id=?)
-     ORDER BY points ASC LIMIT 1'
-);
-$nextStmt->execute([$userId]);
-$nextChall = $nextStmt->fetch();
+try {
+    $nextStmt = db()->prepare(
+        'SELECT id, title, category, points FROM challenges
+         WHERE is_active=1 AND id NOT IN (SELECT challenge_id FROM solves WHERE user_id=?)
+         ORDER BY points ASC LIMIT 1'
+    );
+    $nextStmt->execute([$userId]);
+    $nextChall = $nextStmt->fetch();
+} catch (Throwable $e) {
+    $nextChall = null;
+}
 
-$actStmt = db()->query(
-    'SELECT s.solved_at, u.username, u.id AS uid, c.title, c.id AS cid, c.category, s.points_awarded
-     FROM solves s
-     JOIN users u ON u.id = s.user_id
-     JOIN challenges c ON c.id = s.challenge_id
-     ORDER BY s.solved_at DESC
-     LIMIT 10'
-);
-$activityFeed = $actStmt->fetchAll();
+try {
+    $actStmt = db()->query(
+        'SELECT s.solved_at, u.username, u.id AS uid, c.title, c.id AS cid, c.category, s.points_awarded
+         FROM solves s
+         JOIN users u ON u.id = s.user_id
+         JOIN challenges c ON c.id = s.challenge_id
+         ORDER BY s.solved_at DESC
+         LIMIT 10'
+    );
+    $activityFeed = $actStmt->fetchAll();
+} catch (Throwable $e) {
+    $activityFeed = [];
+}
 
 include __DIR__ . '/header.php';
 ?>

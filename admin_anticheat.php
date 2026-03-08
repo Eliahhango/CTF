@@ -8,6 +8,13 @@ require_admin();
 $pdo = db();
 $admin = current_user();
 $adminId = sanitize_int($admin['id'] ?? 0, 0, 1);
+$tableExists = false;
+try {
+    db()->query('SELECT 1 FROM cheat_alerts LIMIT 1');
+    $tableExists = true;
+} catch (Throwable $e) {
+    $tableExists = false;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate();
@@ -19,10 +26,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $alertId = sanitize_int($_POST['alert_id'] ?? 0, 0, 1);
         $viewUid = sanitize_int($_POST['view_user'] ?? 0, 0, 1);
 
-        if ($alertId > 0 && $adminId > 0) {
-            $stmt = $pdo->prepare('UPDATE cheat_alerts SET reviewed=1, reviewed_by=?, reviewed_at=NOW() WHERE id=?');
-            $stmt->execute([$adminId, $alertId]);
-            log_admin_action('mark_alert_reviewed', 'cheat_alert', $alertId, '');
+        if ($alertId > 0 && $adminId > 0 && $tableExists) {
+            try {
+                $stmt = $pdo->prepare('UPDATE cheat_alerts SET reviewed=1, reviewed_by=?, reviewed_at=NOW() WHERE id=?');
+                $stmt->execute([$adminId, $alertId]);
+                log_admin_action('mark_alert_reviewed', 'cheat_alert', $alertId, '');
+            } catch (Throwable $e) {
+                // Ignore anti-cheat failures to keep admin panel accessible.
+            }
         }
 
         if ($viewUid > 0) {
@@ -34,10 +45,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'mark_all_reviewed') {
         $targetUid = sanitize_int($_POST['target_uid'] ?? 0, 0, 1);
-        if ($targetUid > 0 && $adminId > 0) {
-            $stmt = $pdo->prepare('UPDATE cheat_alerts SET reviewed=1, reviewed_by=?, reviewed_at=NOW() WHERE user_id=? AND reviewed=0');
-            $stmt->execute([$adminId, $targetUid]);
-            log_admin_action('mark_all_alerts_reviewed', 'user', $targetUid, '');
+        if ($targetUid > 0 && $adminId > 0 && $tableExists) {
+            try {
+                $stmt = $pdo->prepare('UPDATE cheat_alerts SET reviewed=1, reviewed_by=?, reviewed_at=NOW() WHERE user_id=? AND reviewed=0');
+                $stmt->execute([$adminId, $targetUid]);
+                log_admin_action('mark_all_alerts_reviewed', 'user', $targetUid, '');
+            } catch (Throwable $e) {
+                // Ignore anti-cheat failures to keep admin panel accessible.
+            }
         }
         redirect('/admin_anticheat.php');
     }
@@ -54,22 +69,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$unreviewedCount = (int)$pdo->query('SELECT COUNT(*) FROM cheat_alerts WHERE reviewed=0')->fetchColumn();
-$highSeverityCount = (int)$pdo->query("SELECT COUNT(*) FROM cheat_alerts WHERE severity='high' AND reviewed=0")->fetchColumn();
-$flaggedUsersCount = (int)$pdo->query('SELECT COUNT(DISTINCT user_id) FROM cheat_alerts WHERE reviewed=0')->fetchColumn();
-$reviewedTodayCount = (int)$pdo->query('SELECT COUNT(*) FROM cheat_alerts WHERE reviewed=1 AND reviewed_at >= CURDATE()')->fetchColumn();
+$unreviewedCount = 0;
+$highSeverityCount = 0;
+$flaggedUsersCount = 0;
+$reviewedTodayCount = 0;
+$flaggedUsers = [];
+if ($tableExists) {
+    try {
+        $unreviewedCount = (int)$pdo->query('SELECT COUNT(*) FROM cheat_alerts WHERE reviewed=0')->fetchColumn();
+        $highSeverityCount = (int)$pdo->query("SELECT COUNT(*) FROM cheat_alerts WHERE severity='high' AND reviewed=0")->fetchColumn();
+        $flaggedUsersCount = (int)$pdo->query('SELECT COUNT(DISTINCT user_id) FROM cheat_alerts WHERE reviewed=0')->fetchColumn();
+        $reviewedTodayCount = (int)$pdo->query('SELECT COUNT(*) FROM cheat_alerts WHERE reviewed=1 AND reviewed_at >= CURDATE()')->fetchColumn();
+    } catch (Throwable $e) {
+        $unreviewedCount = 0;
+        $highSeverityCount = 0;
+        $flaggedUsersCount = 0;
+        $reviewedTodayCount = 0;
+    }
 
-$flaggedUsers = $pdo->query(
-    'SELECT u.id, u.username,
-      COUNT(ca.id) AS alert_count,
-      SUM(CASE WHEN ca.severity=\'high\' THEN 1 ELSE 0 END) AS high_count,
-      MAX(ca.created_at) AS last_alert
-     FROM cheat_alerts ca
-     JOIN users u ON u.id = ca.user_id
-     WHERE ca.reviewed = 0
-     GROUP BY u.id
-     ORDER BY high_count DESC, alert_count DESC, last_alert DESC'
-)->fetchAll();
+    try {
+        $flaggedUsers = $pdo->query(
+            'SELECT u.id, u.username,
+              COUNT(ca.id) AS alert_count,
+              SUM(CASE WHEN ca.severity=\'high\' THEN 1 ELSE 0 END) AS high_count,
+              MAX(ca.created_at) AS last_alert
+             FROM cheat_alerts ca
+             JOIN users u ON u.id = ca.user_id
+             WHERE ca.reviewed = 0
+             GROUP BY u.id
+             ORDER BY high_count DESC, alert_count DESC, last_alert DESC'
+        )->fetchAll();
+    } catch (Throwable $e) {
+        $flaggedUsers = [];
+    }
+}
 
 $viewUid = sanitize_int($_GET['view_user'] ?? 0, 0, 1);
 $viewUser = null;
@@ -87,15 +120,21 @@ if ($viewUid > 0) {
         $viewUserPoints = user_points($viewUid);
         $viewUserSolves = solved_count($viewUid);
 
-        $alertStmt = $pdo->prepare(
-            'SELECT ca.id, ca.challenge_id, c.title AS challenge_title, ca.reason, ca.severity, ca.detail, ca.reviewed, ca.created_at
-             FROM cheat_alerts ca
-             LEFT JOIN challenges c ON c.id = ca.challenge_id
-             WHERE ca.user_id=?
-             ORDER BY ca.reviewed ASC, ca.created_at DESC, ca.id DESC'
-        );
-        $alertStmt->execute([$viewUid]);
-        $viewUserAlerts = $alertStmt->fetchAll();
+        if ($tableExists) {
+            try {
+                $alertStmt = $pdo->prepare(
+                    'SELECT ca.id, ca.challenge_id, c.title AS challenge_title, ca.reason, ca.severity, ca.detail, ca.reviewed, ca.created_at
+                     FROM cheat_alerts ca
+                     LEFT JOIN challenges c ON c.id = ca.challenge_id
+                     WHERE ca.user_id=?
+                     ORDER BY ca.reviewed ASC, ca.created_at DESC, ca.id DESC'
+                );
+                $alertStmt->execute([$viewUid]);
+                $viewUserAlerts = $alertStmt->fetchAll();
+            } catch (Throwable $e) {
+                $viewUserAlerts = [];
+            }
+        }
 
         $timelineStmt = $pdo->prepare(
             'SELECT s.solved_at, c.title AS challenge_title, s.points_awarded
@@ -121,6 +160,14 @@ include __DIR__ . '/header.php';
     <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/admin.php">Back</a>
   </div>
 </div>
+
+<?php if (!$tableExists): ?>
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    <strong>Setup Required:</strong> The <code>cheat_alerts</code> table does not exist.
+    Run the migration SQL from <code>db_schema.sql</code> to enable anti-cheat features.
+  </div>
+<?php endif; ?>
 
 <div class="row g-3 mb-3">
   <div class="col-md-3">

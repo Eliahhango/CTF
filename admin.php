@@ -85,14 +85,16 @@ include __DIR__ . '/header.php';
       </div>
     </div>
   </div>
-  <div class="col-lg-3 col-md-6">
-    <div class="card stat-card-modern" style="<?= $antiCheatAlerts > 0 ? 'border-color:#d97706;' : '' ?>">
-      <div class="card-body">
-        <div class="stat-card-label">Unreviewed Anti-Cheat Alerts</div>
-        <div class="stat-card-value" style="color:<?= $antiCheatAlerts > 0 ? '#d97706' : '#2563eb' ?>;"><?= e((string)$antiCheatAlerts) ?></div>
+  <?php if ($antiCheatAlerts > 0): ?>
+    <div class="col-lg-3 col-md-6">
+      <div class="card stat-card-modern" style="border-color:#d97706;">
+        <div class="card-body">
+          <div class="stat-card-label">Unreviewed Anti-Cheat Alerts</div>
+          <div class="stat-card-value" style="color:#d97706;"><?= e((string)$antiCheatAlerts) ?></div>
+        </div>
       </div>
     </div>
-  </div>
+  <?php endif; ?>
 </div>
 
 <div class="card mb-3">
