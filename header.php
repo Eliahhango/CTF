@@ -191,6 +191,14 @@ $mode = $mode ?? 'closed';
       font-weight: 600;
     }
 
+    .navbar-right-zone {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      flex-wrap: wrap;
+      padding: .5rem 0;
+    }
+
     .countdown-pill {
       display: inline-flex;
       align-items: center;
@@ -225,13 +233,13 @@ $mode = $mode ?? 'closed';
 
     .flash-stack {
       position: fixed;
-      top: 76px;
-      right: 16px;
-      width: min(380px, calc(100vw - 24px));
+      top: 70px;
+      right: 12px;
+      width: min(360px, calc(100vw - 24px));
       z-index: 1300;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
     }
 
     .flash-alert {
@@ -755,7 +763,14 @@ $mode = $mode ?? 'closed';
       }
 
       .stats-grid-3 {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .navbar-right-zone {
+        padding: .75rem 0 .5rem;
+        border-top: 1px solid rgba(255,255,255,.1);
+        width: 100%;
+        justify-content: flex-start;
       }
 
       .challenge-search {
@@ -764,11 +779,115 @@ $mode = $mode ?? 'closed';
       }
     }
 
-    @media (max-width: 767.98px) {
+    @media (max-width: 575.98px) {
+      .stats-grid-3 { grid-template-columns: 1fr; }
+
       .flash-stack {
-        top: 68px;
-        right: 10px;
+        top: 60px;
+        right: 8px;
+        left: 8px;
+        width: auto;
       }
+    }
+
+    /* Responsive column helper */
+    .col-md-full { width: 100%; }
+    @media (min-width: 768px) { .col-md-full { width: auto; } }
+
+    /* Responsive chart shell - shrink min-height on small screens */
+    @media (max-width: 575.98px) {
+      .chart-shell { min-height: 200px; }
+      .chart-shell canvas { height: 180px !important; }
+    }
+
+    /* Ensure tables never overflow container */
+    .table-responsive { -webkit-overflow-scrolling: touch; }
+
+    /* Page title shrinks further on phones */
+    @media (max-width: 575.98px) {
+      .page-title { font-size: 1.4rem; }
+      .stat-card-value { font-size: 1.25rem; }
+    }
+
+    /* Auth card full width on phones */
+    @media (max-width: 575.98px) {
+      .auth-card { max-width: 100%; }
+      .auth-page { padding: .5rem; align-items: flex-start; padding-top: 1.5rem; }
+    }
+
+    /* Status card responsive */
+    @media (max-width: 575.98px) {
+      .status-card { padding: 2rem 1.25rem; border-radius: 12px; }
+      .status-card .status-heading { font-size: 1.4rem; }
+    }
+
+    /* Admin page: button groups wrap on mobile */
+    @media (max-width: 767.98px) {
+      .btn-group-admin-wrap { flex-direction: column; gap: .4rem; }
+      .btn-group-admin-wrap .btn { width: 100%; }
+    }
+
+    @media (max-width: 400px) {
+      .countdown-pill { font-size: .7rem; padding: .28rem .45rem; }
+    }
+
+    /* Better button sizing on mobile */
+    @media (max-width: 575.98px) {
+      .btn { min-height: 38px; font-size: .85rem; }
+      .btn-sm { min-height: 32px; font-size: .8rem; }
+    }
+
+    /* Card bodies: consistent inner padding */
+    @media (max-width: 575.98px) {
+      .card-body { padding: 1rem; }
+    }
+
+    /* Improved badge readability */
+    .badge { letter-spacing: .02em; }
+
+    /* Better form control on iOS (prevents zoom) */
+    @media (max-width: 767.98px) {
+      .form-control, .form-select, textarea {
+        font-size: 16px;
+      }
+    }
+
+    /* Improved table on mobile */
+    @media (max-width: 575.98px) {
+      .table { font-size: .8rem; }
+      .table thead th, .table tbody td { padding: .55rem .45rem; }
+    }
+
+    /* Profile banner improvements */
+    .profile-banner { min-height: 160px; }
+    @media (max-width: 575.98px) {
+      .profile-banner { min-height: 130px; }
+      .profile-stat-pill { font-size: .78rem; padding: .28rem .55rem; }
+    }
+
+    /* Challenge card: ensure minimum height on mobile */
+    @media (max-width: 575.98px) {
+      .challenge-card { min-height: unset; }
+      .first-blood-badge { font-size: .63rem; }
+    }
+
+    /* Accordion: better mobile tap targets */
+    .accordion-button { min-height: 48px; }
+
+    /* Nav pills: better mobile tap targets */
+    .nav-pills .nav-link { min-height: 36px; display:inline-flex; align-items:center; }
+
+    /* Smooth scrolling */
+    html { scroll-behavior: smooth; }
+
+    /* Better link color in tables */
+    .table a { color: var(--primary); }
+    .table a:hover { color: var(--primary-hover); }
+
+    /* Footer responsive */
+    @media (max-width: 575.98px) {
+      .ops-footer { text-align: center; }
+      .ops-footer .container { justify-content: center !important; }
     }
   </style>
 </head>
@@ -818,7 +937,7 @@ $mode = $mode ?? 'closed';
           <?php endforeach; ?>
         </ul>
 
-        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-lg-end pt-2 pt-lg-0">
+        <div class="navbar-right-zone">
           <?php if ($mode === 'before'): ?>
             <span class="countdown-pill countdown-before" id="challengeCountdown" data-mode="before" data-seconds="<?= e((string)$secondsLeft) ?>">
               OPENS IN <span id="cdText">--</span>

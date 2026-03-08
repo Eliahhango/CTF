@@ -62,13 +62,13 @@ sort($categories, SORT_NATURAL | SORT_FLAG_CASE);
 include __DIR__ . '/header.php';
 ?>
 
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
   <div>
     <h1 class="page-title mb-0">Challenges</h1>
     <p class="page-subtitle">Browse challenge categories and start solving.</p>
   </div>
-  <div class="d-flex align-items-center gap-2 challenge-search">
-    <input id="challengeSearch" class="form-control" placeholder="Search challenges...">
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    <input id="challengeSearch" class="form-control" placeholder="Search..." style="width:180px;min-width:120px;">
     <div class="btn-group btn-group-sm" id="viewToggle">
       <button class="btn btn-outline-secondary active" data-view="grid" title="Grid">
         <i class="bi bi-grid-3x3-gap"></i>
@@ -77,16 +77,18 @@ include __DIR__ . '/header.php';
         <i class="bi bi-list-ul"></i>
       </button>
     </div>
-    <a class="btn btn-outline-primary" href="<?= e(BASE_URL) ?>/leaderboard.php">Leaderboard</a>
+    <a class="btn btn-sm btn-outline-primary" href="<?= e(BASE_URL) ?>/leaderboard.php">Leaderboard</a>
   </div>
 </div>
 
-<ul class="nav nav-pills mb-3" id="challengeTabs">
-  <li class="nav-item"><button type="button" class="nav-link active" data-filter="all">All</button></li>
-  <?php foreach ($categories as $category): ?>
-    <li class="nav-item"><button type="button" class="nav-link" data-filter="<?= e($category) ?>"><?= e(ucfirst($category)) ?></button></li>
-  <?php endforeach; ?>
-</ul>
+<div class="overflow-auto pb-1 mb-3">
+  <ul class="nav nav-pills flex-nowrap" id="challengeTabs" style="min-width:max-content;">
+    <li class="nav-item"><button type="button" class="nav-link active" data-filter="all">All</button></li>
+    <?php foreach ($categories as $category): ?>
+      <li class="nav-item"><button type="button" class="nav-link" data-filter="<?= e($category) ?>"><?= e(ucfirst($category)) ?></button></li>
+    <?php endforeach; ?>
+  </ul>
+</div>
 
 <div class="row g-3" id="challengeGrid">
   <?php foreach ($challs as $c): ?>
@@ -116,7 +118,7 @@ include __DIR__ . '/header.php';
       $pct = $totalPlayers > 0 ? min(100, (int)floor($sc / $totalPlayers * 100)) : 0;
     ?>
 
-    <div class="col-lg-4 col-md-6" data-category="<?= e($catKey) ?>" data-title="<?= e(strtolower((string)$c['title'])) ?>">
+    <div class="col-12 col-md-6 col-lg-4" data-category="<?= e($catKey) ?>" data-title="<?= e(strtolower((string)$c['title'])) ?>">
       <article class="card challenge-card<?= $isSolved ? ' is-solved' : '' ?><?= $isLocked ? ' is-locked' : '' ?>"<?= $isLocked ? ' title="Solve prerequisite challenge first"' : '' ?>>
         <div class="challenge-category-strip cat-strip-<?= e($catKey) ?>"></div>
 

@@ -129,7 +129,7 @@ include __DIR__ . '/header.php';
     <form method="get" class="row g-2 align-items-end">
       <input type="hidden" name="view" value="<?= e($view) ?>">
 
-      <div class="col-lg-4">
+      <div class="col-12 col-sm-6 col-lg-4">
         <label class="form-label" for="challengeFilter">Challenge</label>
         <select id="challengeFilter" name="challenge_id" class="form-select">
           <option value="0">All Challenges</option>
@@ -141,7 +141,7 @@ include __DIR__ . '/header.php';
         </select>
       </div>
 
-      <div class="col-lg-4">
+      <div class="col-12 col-sm-6 col-lg-4">
         <label class="form-label" for="userFilter">User Prefix</label>
         <input
           id="userFilter"
@@ -153,7 +153,7 @@ include __DIR__ . '/header.php';
         >
       </div>
 
-      <div class="col-lg-4 d-flex gap-2">
+      <div class="col-12 col-sm-6 col-lg-4 d-flex gap-2">
         <button class="btn btn-primary" type="submit">Apply Filters</button>
         <a class="btn btn-outline-secondary" href="<?= e(BASE_URL) ?>/admin_solves.php?view=<?= e($view) ?>">Reset</a>
       </div>

@@ -176,7 +176,7 @@ include __DIR__ . '/header.php';
 <?php endif; ?>
 
 <div class="row g-3 mb-3">
-  <div class="col-md-3">
+  <div class="col-6 col-md-3">
     <div class="card">
       <div class="card-body text-center">
         <div style="font-size:1.8rem;font-weight:800;color:#2563eb"><?= e((string)$unreviewedCount) ?></div>
@@ -184,7 +184,7 @@ include __DIR__ . '/header.php';
       </div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col-6 col-md-3">
     <div class="card">
       <div class="card-body text-center">
         <div style="font-size:1.8rem;font-weight:800;color:#dc2626"><?= e((string)$highSeverityCount) ?></div>
@@ -192,7 +192,7 @@ include __DIR__ . '/header.php';
       </div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col-6 col-md-3">
     <div class="card">
       <div class="card-body text-center">
         <div style="font-size:1.8rem;font-weight:800;color:#d97706"><?= e((string)$flaggedUsersCount) ?></div>
@@ -200,7 +200,7 @@ include __DIR__ . '/header.php';
       </div>
     </div>
   </div>
-  <div class="col-md-3">
+  <div class="col-6 col-md-3">
     <div class="card">
       <div class="card-body text-center">
         <div style="font-size:1.8rem;font-weight:800;color:#16a34a"><?= e((string)$reviewedTodayCount) ?></div>
@@ -348,25 +348,27 @@ include __DIR__ . '/header.php';
         <?php if (!$viewUserTimeline): ?>
           <div class="alert alert-info mb-0">No solves recorded for this user.</div>
         <?php else: ?>
-          <div class="table-responsive">
-            <table class="table table-striped align-middle">
-              <thead>
-                <tr>
-                  <th style="width: 190px;">Time</th>
-                  <th>Challenge</th>
-                  <th style="width: 110px;" class="text-end">Points</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php foreach ($viewUserTimeline as $solve): ?>
+          <div style="max-width:700px;">
+            <div class="table-responsive">
+              <table class="table table-striped align-middle">
+                <thead>
                   <tr>
-                    <td><?= e((string)$solve['solved_at']) ?></td>
-                    <td><?= e((string)$solve['challenge_title']) ?></td>
-                    <td class="text-end score-points"><?= e((string)$solve['points_awarded']) ?></td>
+                    <th style="width: 190px;">Time</th>
+                    <th>Challenge</th>
+                    <th style="width: 110px;" class="text-end">Points</th>
                   </tr>
-                <?php endforeach; ?>
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  <?php foreach ($viewUserTimeline as $solve): ?>
+                    <tr>
+                      <td><?= e((string)$solve['solved_at']) ?></td>
+                      <td><?= e((string)$solve['challenge_title']) ?></td>
+                      <td class="text-end score-points"><?= e((string)$solve['points_awarded']) ?></td>
+                    </tr>
+                  <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
           </div>
         <?php endif; ?>
       </div>

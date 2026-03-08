@@ -7,13 +7,16 @@
   </div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" integrity="sha384-JUh163oCRItcbPme8pYnROHQMC6fNKTBWtRG3I3I0erJkzNgL7uxKlNwcrcFKeqF" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
 <!-- Live feed toast container -->
 <div id="lf-wrap" aria-live="polite" style="
-  position:fixed;bottom:1.25rem;right:1.25rem;z-index:1500;
-  width:min(340px,calc(100vw - 2rem));
+  position:fixed;
+  bottom:max(1.25rem, env(safe-area-inset-bottom, 1rem));
+  right:1.25rem;
+  z-index:1500;
+  width:min(320px,calc(100vw - 2rem));
   display:flex;flex-direction:column-reverse;gap:.5rem;
   pointer-events:none;
 "></div>
@@ -24,6 +27,8 @@
   padding:.7rem 1rem;box-shadow:0 4px 18px rgba(15,23,42,.12);
   pointer-events:auto;font-size:.86rem;color:#1e293b;
   display:flex;align-items:center;gap:.6rem;
+  word-break: break-word;
+  max-width: 100%;
   opacity:0;transform:translateY(6px);
   transition:opacity .25s ease,transform .25s ease;
 }

@@ -577,7 +577,7 @@ include __DIR__ . '/header.php';
 </div>
 
 <div class="row g-3">
-  <div class="col-lg-5">
+  <div class="col-12 col-lg-5">
     <div class="card h-100">
       <div class="card-body">
         <h3 class="section-head">Create Challenge</h3>
@@ -686,7 +686,7 @@ include __DIR__ . '/header.php';
     </div>
   </div>
 
-  <div class="col-lg-7">
+  <div class="col-12 col-lg-7">
     <div class="card h-100">
       <div class="card-body">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">

@@ -126,7 +126,7 @@ include __DIR__ . '/header.php';
 ?>
 
 <div class="row g-3">
-  <div class="col-lg-8">
+  <div class="col-12 col-lg-8 order-2 order-lg-1">
     <div class="card h-100">
       <div class="card-body p-4">
         <?php
@@ -134,7 +134,7 @@ include __DIR__ . '/header.php';
           $catIconMap = ['web' => 'globe', 'crypto' => 'lock', 'forensics' => 'search', 'pwn' => 'terminal', 'linux' => 'terminal-fill'];
           $catIcon = $catIconMap[$catKey] ?? 'puzzle';
         ?>
-        <div class="d-flex align-items-start gap-3 mb-3">
+        <div class="d-flex flex-wrap align-items-start gap-3 mb-3">
           <div class="cat-icon-box cat-<?= e($catKey) ?>">
             <i class="bi bi-<?= e($catIcon) ?>"></i>
           </div>
@@ -191,7 +191,7 @@ include __DIR__ . '/header.php';
     </div>
   </div>
 
-  <div class="col-lg-4">
+  <div class="col-12 col-lg-4 order-1 order-lg-2">
     <div class="card">
       <div class="card-body p-4">
         <h2 class="h5 mb-3">Submit Flag</h2>
@@ -201,7 +201,7 @@ include __DIR__ . '/header.php';
             <h3 class="h6 mb-2">Downloads</h3>
             <div class="vstack gap-2">
               <?php foreach ($files as $file): ?>
-                <div class="d-flex align-items-center justify-content-between gap-2 border rounded p-2">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border rounded p-2">
                   <div class="d-flex align-items-start gap-2">
                     <i class="bi bi-file-earmark-arrow-down text-primary"></i>
                     <div>

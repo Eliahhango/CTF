@@ -127,7 +127,7 @@ include __DIR__ . '/header.php';
 
 <div class="card">
   <div class="card-body">
-    <div class="table-responsive">
+    <div class="table-responsive" style="-webkit-overflow-scrolling:touch;">
       <table class="table table-striped align-middle leaderboard-table">
         <thead>
             <tr>
@@ -135,8 +135,8 @@ include __DIR__ . '/header.php';
               <th>User</th>
               <th style="width: 120px;" class="text-end">Points</th>
               <th style="width: 100px;" class="text-end">Solves</th>
-              <th class="text-end" style="width:90px;">Complete</th>
-              <th style="width: 180px;" class="text-end">Last Solve</th>
+              <th class="text-end d-none d-md-table-cell" style="width:90px;">Complete</th>
+              <th style="width: 180px;" class="text-end d-none d-sm-table-cell">Last Solve</th>
             </tr>
           </thead>
           <tbody>
@@ -165,8 +165,8 @@ include __DIR__ . '/header.php';
               </td>
               <td class="points-cell"><?= e((string)$r['points']) ?></td>
               <td class="text-end"><?= e((string)$r['solves']) ?></td>
-              <td class="text-end"><span class="badge bg-light text-dark border"><?= e((string)$pct) ?>%</span></td>
-              <td class="text-end text-muted"><?= e((string)($r['last_solve'] ?? '-')) ?></td>
+              <td class="text-end d-none d-md-table-cell"><span class="badge bg-light text-dark border"><?= e((string)$pct) ?>%</span></td>
+              <td class="text-end text-muted d-none d-sm-table-cell"><?= e((string)($r['last_solve'] ?? '-')) ?></td>
             </tr>
           <?php endforeach; ?>
           <?php if (!$currentUserSeen && $currentUserPinned): ?>
@@ -181,8 +181,8 @@ include __DIR__ . '/header.php';
               </td>
               <td class="points-cell"><?= e((string)$currentUserPinned['points']) ?></td>
               <td class="text-end"><?= e((string)$currentUserPinned['solves']) ?></td>
-              <td class="text-end"><span class="badge bg-light text-dark border"><?= e((string)$pinnedPct) ?>%</span></td>
-              <td class="text-end text-muted"><?= e((string)($currentUserPinned['last_solve'] ?? '-')) ?></td>
+              <td class="text-end d-none d-md-table-cell"><span class="badge bg-light text-dark border"><?= e((string)$pinnedPct) ?>%</span></td>
+              <td class="text-end text-muted d-none d-sm-table-cell"><?= e((string)($currentUserPinned['last_solve'] ?? '-')) ?></td>
             </tr>
           <?php endif; ?>
         </tbody>

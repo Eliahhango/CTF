@@ -357,13 +357,24 @@ include __DIR__ . '/header.php';
       grid-template-columns: 1fr;
     }
   }
+
+  @media (max-width: 575.98px) {
+    .stat-box { padding: .6rem .5rem; }
+    .stat-box-value { font-size: 1.1rem; }
+    .landing-page .hero-title { font-size: clamp(1.7rem, 6vw, 2.4rem); }
+    .landing-page .hero-subtitle { font-size: .92rem; }
+  }
+
+  @media (max-width: 575.98px) {
+    .landing-page .landing-override { margin-left: -1rem; margin-right: -1rem; }
+  }
 </style>
 
 <div class="landing-page">
   <section class="landing-hero landing-override">
     <div class="container">
       <div class="row align-items-center g-4">
-        <div class="col-lg-7">
+        <div class="col-12 col-lg-7">
           <span class="live-pill"><span class="live-dot"></span> Live Platform · Dar es Salaam</span>
 
           <h1 class="hero-title">Master the Art of <span style="color:#60a5fa">Ethical Hacking</span></h1>
@@ -385,7 +396,7 @@ include __DIR__ . '/header.php';
           <div class="hero-note">Account requires instructor approval</div>
         </div>
 
-        <div class="col-lg-5">
+        <div class="col-12 col-lg-5">
           <div class="glass-card">
             <h2>Platform Stats</h2>
             <div class="hero-stats">
@@ -426,7 +437,7 @@ $ status -> ready</pre>
       <p class="section-subtitle">CTF competitions are the fastest way to build real cybersecurity skills</p>
 
       <div class="row g-3">
-        <div class="col-lg-4">
+        <div class="col-12 col-md-6 col-lg-4">
           <article class="feature-card">
             <i class="bi bi-shield-check feature-icon blue"></i>
             <h3 class="feature-title">Real Skills</h3>
@@ -435,7 +446,7 @@ $ status -> ready</pre>
             </p>
           </article>
         </div>
-        <div class="col-lg-4">
+        <div class="col-12 col-md-6 col-lg-4">
           <article class="feature-card">
             <i class="bi bi-lightning-charge feature-icon amber"></i>
             <h3 class="feature-title">Rapid Growth</h3>
@@ -444,7 +455,7 @@ $ status -> ready</pre>
             </p>
           </article>
         </div>
-        <div class="col-lg-4">
+        <div class="col-12 col-md-6 col-lg-4">
           <article class="feature-card">
             <i class="bi bi-trophy feature-icon green"></i>
             <h3 class="feature-title">Compete &amp; Learn</h3>

@@ -152,12 +152,12 @@ include __DIR__ . '/header.php';
 <div class="profile-page">
   <div class="profile-banner">
     <div class="container">
-      <div class="d-flex align-items-center gap-3">
+      <div class="d-flex flex-wrap align-items-center gap-3">
         <div class="profile-avatar">
           <?= e(strtoupper(substr((string)$profileUser['username'], 0, 1))) ?>
         </div>
-        <div>
-          <h1 style="color:#fff;font-size:1.7rem;font-weight:800;margin:0;">
+        <div style="min-width:0;">
+          <h1 style="color:#fff;font-size:1.7rem;font-weight:800;margin:0;word-break:break-all;">
             @<?= e((string)$profileUser['username']) ?>
             <?php if ($isYou): ?>
               <span class="badge bg-success ms-2" style="font-size:.6rem;vertical-align:middle;">You</span>
@@ -175,7 +175,7 @@ include __DIR__ . '/header.php';
   </div>
 
   <div class="row g-3">
-    <div class="col-lg-8">
+    <div class="col-12 col-lg-8">
       <div class="card h-100">
         <div class="card-body">
           <h2 class="h5 mb-3">Solved Challenges</h2>
@@ -221,7 +221,7 @@ include __DIR__ . '/header.php';
       </div>
     </div>
 
-    <div class="col-lg-4">
+    <div class="col-12 col-lg-4">
       <div class="card mb-3">
         <div class="card-body">
           <h2 class="h6 fw-bold mb-3">Account Info</h2>

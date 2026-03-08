@@ -116,7 +116,7 @@ include __DIR__ . '/header.php';
   <h2 class="section-head mb-2">User Management</h2>
   <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
     <span class="small text-muted">Approve, ban, or restore operator accounts.</span>
-    <div class="d-flex gap-2 align-items-center">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
       <form method="post" class="d-inline">
         <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
         <button class="btn btn-sm btn-amber" name="action" value="approve_all_pending" type="submit" onclick="return confirm('Approve all pending users?');">Bulk Approve Pending</button>
@@ -177,18 +177,20 @@ include __DIR__ . '/header.php';
                 <?php if (($x['role'] ?? '') === 'admin'): ?>
                   <span class="text-muted">N/A</span>
                 <?php else: ?>
-                  <form method="post" class="d-inline">
-                    <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-                    <input type="hidden" name="user_id" value="<?= e((string)$x['id']) ?>">
+                  <div class="d-flex flex-wrap gap-1 justify-content-end">
+                    <form method="post" class="d-inline">
+                      <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+                      <input type="hidden" name="user_id" value="<?= e((string)$x['id']) ?>">
 
-                    <?php if (($x['status'] ?? '') === 'pending'): ?>
-                      <button class="btn btn-sm btn-green" name="action" value="approve">Approve</button>
-                    <?php elseif (($x['status'] ?? '') === 'active'): ?>
-                      <button class="btn btn-sm btn-red" name="action" value="ban">Ban</button>
-                    <?php else: ?>
-                      <button class="btn btn-sm btn-cyan" name="action" value="unban">Unban</button>
-                    <?php endif; ?>
-                  </form>
+                      <?php if (($x['status'] ?? '') === 'pending'): ?>
+                        <button class="btn btn-sm btn-green" name="action" value="approve">Approve</button>
+                      <?php elseif (($x['status'] ?? '') === 'active'): ?>
+                        <button class="btn btn-sm btn-red" name="action" value="ban">Ban</button>
+                      <?php else: ?>
+                        <button class="btn btn-sm btn-cyan" name="action" value="unban">Unban</button>
+                      <?php endif; ?>
+                    </form>
+                  </div>
                 <?php endif; ?>
               </td>
             </tr>

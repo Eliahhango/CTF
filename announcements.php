@@ -39,7 +39,7 @@ include __DIR__ . '/header.php';
   <div class="vstack gap-3">
     <?php foreach ($announcements as $announcement): ?>
       <article class="card">
-        <div class="card-body">
+        <div class="card-body p-4">
           <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
             <h3 class="h5 mb-0"><?= e((string)$announcement['title']) ?></h3>
             <?php if ((int)$announcement['is_pinned'] === 1): ?>
@@ -47,7 +47,7 @@ include __DIR__ . '/header.php';
             <?php endif; ?>
           </div>
 
-          <div class="challenge-description mb-3" style="white-space: normal;">
+          <div class="challenge-description mb-3" style="white-space: normal; max-width: 72ch; word-break: break-word;">
             <?= nl2br(linkify((string)$announcement['body']), false) ?>
           </div>
 

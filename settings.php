@@ -108,103 +108,107 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include __DIR__ . '/header.php';
 ?>
 
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-  <div>
-    <h1 class="page-title mb-0">Settings</h1>
-    <p class="page-subtitle">Manage your account details and security</p>
-  </div>
-</div>
-
-<div class="row g-3">
-  <div class="col-lg-6">
-    <div class="card h-100">
-      <div class="card-body">
-        <h2 class="h5 mb-3">Update Username</h2>
-        <form method="post">
-          <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-          <input type="hidden" name="action" value="update_username">
-
-          <div class="mb-3">
-            <label class="form-label" for="settings_username">Username</label>
-            <input
-              id="settings_username"
-              class="form-control"
-              name="username"
-              value="<?= e((string)($u['username'] ?? '')) ?>"
-              required
-            >
-            <div class="form-text">3-20 characters, letters/numbers/underscore.</div>
-          </div>
-
-          <div class="mb-3">
-            <label class="form-label" for="settings_username_password">Current Password</label>
-            <input id="settings_username_password" class="form-control" name="current_password" type="password" required>
-          </div>
-
-          <button class="btn btn-primary" type="submit">Save Username</button>
-        </form>
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8 col-xl-7">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+      <div>
+        <h1 class="page-title mb-0">Settings</h1>
+        <p class="page-subtitle">Manage your account details and security</p>
       </div>
     </div>
-  </div>
 
-  <div class="col-lg-6">
-    <div class="card h-100">
-      <div class="card-body">
-        <h2 class="h5 mb-3">Update Email</h2>
-        <form method="post">
-          <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-          <input type="hidden" name="action" value="update_email">
+    <div class="row g-3">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h2 class="h5 mb-3">Update Username</h2>
+            <form method="post">
+              <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="action" value="update_username">
 
-          <div class="mb-3">
-            <label class="form-label" for="settings_email">Email</label>
-            <input
-              id="settings_email"
-              class="form-control"
-              name="email"
-              type="email"
-              value="<?= e((string)($u['email'] ?? '')) ?>"
-              required
-            >
+              <div class="mb-3">
+                <label class="form-label" for="settings_username">Username</label>
+                <input
+                  id="settings_username"
+                  class="form-control"
+                  name="username"
+                  value="<?= e((string)($u['username'] ?? '')) ?>"
+                  required
+                >
+                <div class="form-text">3-20 characters, letters/numbers/underscore.</div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" for="settings_username_password">Current Password</label>
+                <input id="settings_username_password" class="form-control" name="current_password" type="password" required>
+              </div>
+
+              <button class="btn btn-primary" type="submit">Save Username</button>
+            </form>
           </div>
-
-          <div class="mb-3">
-            <label class="form-label" for="settings_email_password">Current Password</label>
-            <input id="settings_email_password" class="form-control" name="current_password" type="password" required>
-          </div>
-
-          <button class="btn btn-primary" type="submit">Save Email</button>
-        </form>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <div class="col-12">
-    <div class="card">
-      <div class="card-body">
-        <h2 class="h5 mb-3">Change Password</h2>
-        <form method="post">
-          <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
-          <input type="hidden" name="action" value="update_password">
+      <div class="col-lg-6">
+        <div class="card h-100">
+          <div class="card-body">
+            <h2 class="h5 mb-3">Update Email</h2>
+            <form method="post">
+              <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="action" value="update_email">
 
-          <div class="row g-3">
-            <div class="col-md-4">
-              <label class="form-label" for="settings_current_password">Current Password</label>
-              <input id="settings_current_password" class="form-control" name="current_password" type="password" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" for="settings_new_password">New Password</label>
-              <input id="settings_new_password" class="form-control" name="new_password" type="password" required>
-            </div>
-            <div class="col-md-4">
-              <label class="form-label" for="settings_confirm_password">Confirm New Password</label>
-              <input id="settings_confirm_password" class="form-control" name="confirm_password" type="password" required>
-            </div>
+              <div class="mb-3">
+                <label class="form-label" for="settings_email">Email</label>
+                <input
+                  id="settings_email"
+                  class="form-control"
+                  name="email"
+                  type="email"
+                  value="<?= e((string)($u['email'] ?? '')) ?>"
+                  required
+                >
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label" for="settings_email_password">Current Password</label>
+                <input id="settings_email_password" class="form-control" name="current_password" type="password" required>
+              </div>
+
+              <button class="btn btn-primary" type="submit">Save Email</button>
+            </form>
           </div>
+        </div>
+      </div>
 
-          <div class="mt-3">
-            <button class="btn btn-primary" type="submit">Update Password</button>
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <h2 class="h5 mb-3">Change Password</h2>
+            <form method="post">
+              <input type="hidden" name="csrf" value="<?= e(csrf_token()) ?>">
+              <input type="hidden" name="action" value="update_password">
+
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" for="settings_current_password">Current Password</label>
+                  <input id="settings_current_password" class="form-control" name="current_password" type="password" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="settings_new_password">New Password</label>
+                  <input id="settings_new_password" class="form-control" name="new_password" type="password" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="settings_confirm_password">Confirm New Password</label>
+                  <input id="settings_confirm_password" class="form-control" name="confirm_password" type="password" required>
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <button class="btn btn-primary" type="submit">Update Password</button>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   </div>

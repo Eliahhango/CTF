@@ -186,27 +186,27 @@ include __DIR__ . '/header.php';
   <div class="card mb-3">
     <div class="card-body d-flex align-items-center gap-3 py-3">
       <i class="bi bi-arrow-right-circle-fill text-primary fs-3 flex-shrink-0"></i>
-      <div class="flex-grow-1">
+      <div class="flex-grow-1" style="min-width:0;">
         <div class="fw-bold text-primary" style="font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;">
           Suggested Next
         </div>
-        <div class="fw-semibold"><?= e((string)$nextChall['title']) ?></div>
-        <div class="text-muted small"><?= e((string)$nextChall['category']) ?> · <?= e((string)$nextChall['points']) ?> pts</div>
+        <div class="fw-semibold text-truncate"><?= e((string)$nextChall['title']) ?></div>
+        <div class="text-muted small"><?= e((string)$nextChall['category']) ?> Â· <?= e((string)$nextChall['points']) ?> pts</div>
       </div>
       <a href="<?= e(BASE_URL) ?>/challenge.php?id=<?= e((string)$nextChall['id']) ?>"
-         class="btn btn-sm btn-primary flex-shrink-0">Go →</a>
+         class="btn btn-sm btn-primary flex-shrink-0">Go â†’</a>
     </div>
   </div>
 <?php endif; ?>
 
 <div class="row g-3 mb-3">
-  <div class="col-lg-8">
+  <div class="col-12 col-lg-8">
     <div class="chart-shell">
       <div class="fw-semibold mb-2">Score Over Time</div>
       <canvas id="scoreProgressChart"></canvas>
     </div>
   </div>
-  <div class="col-lg-4">
+  <div class="col-12 col-lg-4">
     <div class="chart-shell">
       <div class="fw-semibold mb-2">Solved by Category</div>
       <canvas id="categoryBreakdownChart"></canvas>
@@ -263,7 +263,7 @@ include __DIR__ . '/header.php';
           <thead>
             <tr>
               <th style="width:72px;">Status</th>
-              <th style="width:190px;">Time</th>
+              <th style="width:190px;" class="d-none d-md-table-cell">Time</th>
               <th>Challenge</th>
               <th style="width:100px;" class="text-end">Points</th>
             </tr>
@@ -272,7 +272,7 @@ include __DIR__ . '/header.php';
             <?php foreach ($recent as $r): ?>
               <tr>
                 <td><span class="badge bg-success">Solved</span></td>
-                <td><?= e((string)$r['solved_at']) ?></td>
+                <td class="d-none d-md-table-cell"><?= e((string)$r['solved_at']) ?></td>
                 <td>
                   <a href="<?= e(BASE_URL) ?>/challenge.php?id=<?= e((string)$r['challenge_id']) ?>">
                     <?= e((string)$r['title']) ?>
@@ -354,3 +354,4 @@ include __DIR__ . '/header.php';
 </script>
 
 <?php include __DIR__ . '/footer.php'; ?>
+
