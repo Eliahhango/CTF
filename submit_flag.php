@@ -23,17 +23,29 @@ if ($user_id <= 0 || $challenge_id <= 0 || $flag === '') {
 
 rate_limit_submit($user_id);
 
-$stmt = db()->prepare(
-    'SELECT id,title,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,flag_type,flag_hash,flag_plaintext
-     FROM challenges
-     WHERE id=? AND is_active=1'
-);
-$stmt->execute([$challenge_id]);
-$c = $stmt->fetch();
+try {
+    $stmt = db()->prepare(
+        'SELECT id,title,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,flag_type,flag_hash,flag_plaintext
+         FROM challenges WHERE id=? AND is_active=1'
+    );
+    $stmt->execute([$challenge_id]);
+    $c = $stmt->fetch();
+} catch (Throwable $e) {
+    // New columns missing - fall back to legacy-safe aliases.
+    $stmt = db()->prepare(
+        "SELECT id,title,points,points AS initial_points,100 AS floor_points,50 AS decay_solves,'static' AS scoring_type,0 AS max_attempts,'static' AS flag_type,flag_hash,'' AS flag_plaintext
+         FROM challenges WHERE id=? AND is_active=1"
+    );
+    $stmt->execute([$challenge_id]);
+    $c = $stmt->fetch();
+}
 if (!$c) {
     flash_set('danger', 'Challenge not found.');
     redirect('/challenges.php');
 }
+$c['max_attempts'] = (int)($c['max_attempts'] ?? 0);
+$c['flag_type'] = (string)($c['flag_type'] ?? 'static');
+$c['flag_plaintext'] = (string)($c['flag_plaintext'] ?? '');
 
 $stmt2 = db()->prepare('SELECT 1 FROM solves WHERE user_id=? AND challenge_id=? LIMIT 1');
 $stmt2->execute([$user_id, $challenge_id]);
@@ -43,16 +55,20 @@ if ($stmt2->fetchColumn()) {
 }
 
 $pdo = db();
-$maxAttempts = (int)($c['max_attempts'] ?? 0);
-if ($maxAttempts > 0) {
-    $wrongCountStmt = $pdo->prepare(
-        'SELECT COUNT(*) FROM submissions WHERE user_id=? AND challenge_id=? AND is_correct=0'
-    );
-    $wrongCountStmt->execute([$user_id, $challenge_id]);
-    if ((int)$wrongCountStmt->fetchColumn() >= $maxAttempts) {
-        flash_set('danger', 'Maximum attempts reached. You cannot submit again.');
-        redirect('/challenge.php?id=' . $challenge_id);
+try {
+    $maxAttempts = (int)($c['max_attempts'] ?? 0);
+    if ($maxAttempts > 0) {
+        $wrongCountStmt = $pdo->prepare(
+            'SELECT COUNT(*) FROM submissions WHERE user_id=? AND challenge_id=? AND is_correct=0'
+        );
+        $wrongCountStmt->execute([$user_id, $challenge_id]);
+        if ((int)$wrongCountStmt->fetchColumn() >= $maxAttempts) {
+            flash_set('danger', 'Maximum attempts reached.');
+            redirect('/challenge.php?id=' . $challenge_id);
+        }
     }
+} catch (Throwable $e) {
+    // Attempt limit check failed - allow submission to proceed
 }
 
 $ip = ip_address();
@@ -118,8 +134,12 @@ try {
                 );
             }
 
-            $pdo->prepare('UPDATE submissions SET flagged=1 WHERE challenge_id=? AND submitted_flag=? AND is_correct=1')
-                ->execute([$challenge_id, $flag]);
+            try {
+                $pdo->prepare('UPDATE submissions SET flagged=1 WHERE challenge_id=? AND submitted_flag=? AND is_correct=1')
+                    ->execute([$challenge_id, $flag]);
+            } catch (Throwable $e) {
+                // flagged column may not exist yet - skip silently
+            }
         }
     } catch (Throwable $e) {
         app_log_error('cheat_check_1', ['e' => $e->getMessage()]);

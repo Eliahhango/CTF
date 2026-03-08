@@ -168,14 +168,18 @@ function get_challenge_files(int $challenge_id): array
         return [];
     }
 
-    $stmt = db()->prepare(
-        'SELECT id, challenge_id, original_name, stored_name, file_size, mime_type, uploaded_at
-         FROM challenge_files
-         WHERE challenge_id=?
-         ORDER BY uploaded_at DESC, id DESC'
-    );
-    $stmt->execute([$challenge_id]);
-    $rows = $stmt->fetchAll();
+    try {
+        $stmt = db()->prepare(
+            'SELECT id, challenge_id, original_name, stored_name, file_size, mime_type, uploaded_at
+             FROM challenge_files
+             WHERE challenge_id=?
+             ORDER BY uploaded_at DESC, id DESC'
+        );
+        $stmt->execute([$challenge_id]);
+        $rows = $stmt->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
 
     return is_array($rows) ? $rows : [];
 }

@@ -15,13 +15,24 @@ if ($id <= 0) {
     redirect('/challenges.php');
 }
 
-$stmt = db()->prepare(
-    'SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,flag_type,description
-     FROM challenges
-     WHERE id=? AND is_active=1'
-);
-$stmt->execute([$id]);
-$c = $stmt->fetch();
+try {
+    $stmt = db()->prepare(
+        'SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,flag_type,description
+         FROM challenges
+         WHERE id=? AND is_active=1'
+    );
+    $stmt->execute([$id]);
+    $c = $stmt->fetch();
+} catch (Throwable $e) {
+    // New columns may not exist yet - fall back to legacy aliases.
+    $stmt = db()->prepare(
+        "SELECT id,title,category,points,points AS initial_points,100 AS floor_points,50 AS decay_solves,'static' AS scoring_type,0 AS max_attempts,'static' AS flag_type,description
+         FROM challenges
+         WHERE id=? AND is_active=1"
+    );
+    $stmt->execute([$id]);
+    $c = $stmt->fetch();
+}
 if (!$c) {
     flash_set('danger', 'Challenge not found.');
     redirect('/challenges.php');
@@ -43,7 +54,12 @@ $attemptsLeft = $maxAttempts > 0 ? max(0, $maxAttempts - $wrongCount) : -1;
 $attsExhausted = $maxAttempts > 0 && $attemptsLeft === 0;
 $flagType = (string)($c['flag_type'] ?? 'static');
 
-$files = get_challenge_files($id);
+$files = [];
+try {
+    $files = get_challenge_files($id);
+} catch (Throwable $e) {
+    $files = [];
+}
 
 $attemptsStmt = db()->prepare('SELECT COUNT(*) FROM solves WHERE challenge_id=?');
 $attemptsStmt->execute([$id]);
@@ -60,15 +76,20 @@ if ($scoringType === 'dynamic') {
     );
 }
 
-$hintsStmt = db()->prepare(
-    'SELECT h.id, h.content, h.cost, h.sort_order, hu.id AS unlock_id
-     FROM hints h
-     LEFT JOIN hint_unlocks hu ON hu.hint_id = h.id AND hu.user_id = ?
-     WHERE h.challenge_id = ?
-     ORDER BY h.sort_order ASC, h.id ASC'
-);
-$hintsStmt->execute([$userId, $id]);
-$hintRows = $hintsStmt->fetchAll();
+$hintRows = [];
+try {
+    $hintsStmt = db()->prepare(
+        'SELECT h.id, h.content, h.cost, h.sort_order, hu.id AS unlock_id
+         FROM hints h
+         LEFT JOIN hint_unlocks hu ON hu.hint_id = h.id AND hu.user_id = ?
+         WHERE h.challenge_id = ?
+         ORDER BY h.sort_order ASC, h.id ASC'
+    );
+    $hintsStmt->execute([$userId, $id]);
+    $hintRows = $hintsStmt->fetchAll();
+} catch (Throwable $e) {
+    $hintRows = [];
+}
 $netPoints = user_points($userId);
 
 $firstBloodStmt = db()->prepare('SELECT u.username FROM solves s JOIN users u ON u.id=s.user_id WHERE s.challenge_id=? ORDER BY s.solved_at ASC LIMIT 1');

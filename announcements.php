@@ -5,13 +5,17 @@ require_once __DIR__ . '/helpers.php';
 start_session();
 require_active_user();
 
-$stmt = db()->query(
-    'SELECT a.id, a.title, a.body, a.is_pinned, a.created_at, u.username AS author
-     FROM announcements a
-     JOIN users u ON u.id = a.created_by
-     ORDER BY a.is_pinned DESC, a.created_at DESC, a.id DESC'
-);
-$announcements = $stmt->fetchAll();
+try {
+    $stmt = db()->query(
+        'SELECT a.id, a.title, a.body, a.is_pinned, a.created_at, u.username AS author
+         FROM announcements a
+         JOIN users u ON u.id = a.created_by
+         ORDER BY a.is_pinned DESC, a.created_at DESC, a.id DESC'
+    );
+    $announcements = $stmt->fetchAll();
+} catch (Throwable $e) {
+    $announcements = [];
+}
 
 $_SESSION['last_seen_announcements'] = time();
 

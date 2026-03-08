@@ -9,7 +9,11 @@ $pending = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE status='pending'")
 $active = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE status='active'")->fetchColumn();
 $challs = (int)$pdo->query('SELECT COUNT(*) FROM challenges')->fetchColumn();
 $solves = (int)$pdo->query('SELECT COUNT(*) FROM solves')->fetchColumn();
-$announcements = (int)$pdo->query('SELECT COUNT(*) FROM announcements')->fetchColumn();
+try {
+    $announcements = (int)$pdo->query('SELECT COUNT(*) FROM announcements')->fetchColumn();
+} catch (Throwable $e) {
+    $announcements = 0;
+}
 $antiCheatAlerts = cheat_alert_count();
 
 $recentSolves = $pdo->query(

@@ -17,15 +17,20 @@ if ($fileId <= 0 || $challengeId <= 0) {
     redirect('/challenges.php');
 }
 
-$stmt = db()->prepare(
-    'SELECT cf.id, cf.challenge_id, cf.original_name, cf.stored_name, cf.file_size, cf.mime_type, c.is_active
-     FROM challenge_files cf
-     JOIN challenges c ON c.id = cf.challenge_id
-     WHERE cf.id=? AND cf.challenge_id=?
-     LIMIT 1'
-);
-$stmt->execute([$fileId, $challengeId]);
-$file = $stmt->fetch();
+$file = false;
+try {
+    $stmt = db()->prepare(
+        'SELECT cf.id, cf.challenge_id, cf.original_name, cf.stored_name, cf.file_size, cf.mime_type, c.is_active
+         FROM challenge_files cf
+         JOIN challenges c ON c.id = cf.challenge_id
+         WHERE cf.id=? AND cf.challenge_id=?
+         LIMIT 1'
+    );
+    $stmt->execute([$fileId, $challengeId]);
+    $file = $stmt->fetch();
+} catch (Throwable $e) {
+    $file = false;
+}
 
 if (!$file || (int)$file['is_active'] !== 1) {
     flash_set('danger', 'Attachment not available.');

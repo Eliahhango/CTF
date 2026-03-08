@@ -56,29 +56,50 @@ if ($sort === 'points_desc') {
     $orderBy = 'total_points ASC, u.created_at DESC';
 }
 
-$users = $pdo->query(
-    "SELECT
-        u.id,
-        u.username,
-        u.email,
-        u.role,
-        u.status,
-        u.created_at,
-        COALESCE(sv.solve_count, 0) AS solve_count,
-        (COALESCE(sv.solve_points, 0) - COALESCE(hd.points_deducted, 0)) AS total_points
-     FROM users u
-     LEFT JOIN (
-        SELECT user_id, COUNT(*) AS solve_count, SUM(points_awarded) AS solve_points
-        FROM solves
-        GROUP BY user_id
-     ) sv ON sv.user_id = u.id
-     LEFT JOIN (
-        SELECT user_id, SUM(points_deducted) AS points_deducted
-        FROM hint_deductions
-        GROUP BY user_id
-     ) hd ON hd.user_id = u.id
-     ORDER BY $orderBy"
-)->fetchAll();
+try {
+    $users = $pdo->query(
+        "SELECT
+            u.id,
+            u.username,
+            u.email,
+            u.role,
+            u.status,
+            u.created_at,
+            COALESCE(sv.solve_count, 0) AS solve_count,
+            (COALESCE(sv.solve_points, 0) - COALESCE(hd.points_deducted, 0)) AS total_points
+         FROM users u
+         LEFT JOIN (
+            SELECT user_id, COUNT(*) AS solve_count, SUM(points_awarded) AS solve_points
+            FROM solves
+            GROUP BY user_id
+         ) sv ON sv.user_id = u.id
+         LEFT JOIN (
+            SELECT user_id, SUM(points_deducted) AS points_deducted
+            FROM hint_deductions
+            GROUP BY user_id
+         ) hd ON hd.user_id = u.id
+         ORDER BY $orderBy"
+    )->fetchAll();
+} catch (Throwable $e) {
+    $users = $pdo->query(
+        "SELECT
+            u.id,
+            u.username,
+            u.email,
+            u.role,
+            u.status,
+            u.created_at,
+            COALESCE(sv.solve_count, 0) AS solve_count,
+            COALESCE(sv.solve_points, 0) AS total_points
+         FROM users u
+         LEFT JOIN (
+            SELECT user_id, COUNT(*) AS solve_count, SUM(points_awarded) AS solve_points
+            FROM solves
+            GROUP BY user_id
+         ) sv ON sv.user_id = u.id
+         ORDER BY $orderBy"
+    )->fetchAll();
+}
 
 $pointsSortNext = ($sort === 'points_desc') ? 'points_asc' : 'points_desc';
 $pointsSortMarker = '';

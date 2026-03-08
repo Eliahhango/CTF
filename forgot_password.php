@@ -20,18 +20,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $userStmt->fetch();
 
         if ($user && ($user['status'] ?? '') === 'active') {
-            $limitStmt = $pdo->prepare(
-                "SELECT COUNT(*)
-                 FROM password_resets pr
-                 JOIN users u ON u.id = pr.user_id
-                 WHERE u.email = ?
-                   AND pr.created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)"
-            );
-            $limitStmt->execute([$email]);
-            $recentCount = (int)$limitStmt->fetchColumn();
+            try {
+                $limitStmt = $pdo->prepare(
+                    "SELECT COUNT(*)
+                     FROM password_resets pr
+                     JOIN users u ON u.id = pr.user_id
+                     WHERE u.email = ?
+                       AND pr.created_at >= DATE_SUB(NOW(), INTERVAL 1 HOUR)"
+                );
+                $limitStmt->execute([$email]);
+                $recentCount = (int)$limitStmt->fetchColumn();
 
-            if ($recentCount < 3) {
-                try {
+                if ($recentCount < 3) {
                     $rawToken = bin2hex(random_bytes(32));
                     $tokenHash = hash('sha256', $rawToken);
                     $ttlMinutes = max(1, RESET_TOKEN_TTL_MINUTES);
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $resetLink = $baseFull . '/reset_password.php?token=' . urlencode($rawToken);
 
                     $to = (string)$user['email'];
-                    $subject = 'Password Reset – ' . APP_NAME;
+                    $subject = 'Password Reset - ' . APP_NAME;
                     $body = "Click the link below to reset your password (expires in " . $ttlMinutes . " minutes):\n\n" . $resetLink;
 
                     $headers = [];
@@ -65,12 +65,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $headers[] = 'Content-Type: text/plain; charset=UTF-8';
 
                     @mail($to, $subject, $body, implode("\r\n", $headers));
-                } catch (Throwable $e) {
-                    app_log_error('password reset request failed', [
-                        'email' => $email,
-                        'error' => $e->getMessage(),
-                    ]);
                 }
+            } catch (Throwable $e) {
+                app_log_error('password reset request failed', [
+                    'email' => $email,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
     }

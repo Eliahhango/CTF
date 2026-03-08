@@ -5,13 +5,20 @@ require_once __DIR__ . '/helpers.php';
 start_session();
 require_admin();
 
-$rows = db()->query(
-    'SELECT aal.id, aal.action, aal.target_type, aal.target_id, aal.details, aal.ip_addr, aal.created_at, u.username
-     FROM admin_audit_log aal
-     JOIN users u ON u.id = aal.admin_id
-     ORDER BY aal.created_at DESC, aal.id DESC
-     LIMIT 500'
-)->fetchAll();
+$rows = [];
+$auditTableExists = true;
+try {
+    $rows = db()->query(
+        'SELECT aal.id, aal.action, aal.target_type, aal.target_id, aal.details, aal.ip_addr, aal.created_at, u.username
+         FROM admin_audit_log aal
+         JOIN users u ON u.id = aal.admin_id
+         ORDER BY aal.created_at DESC, aal.id DESC
+         LIMIT 500'
+    )->fetchAll();
+} catch (Throwable $e) {
+    $rows = [];
+    $auditTableExists = false;
+}
 
 include __DIR__ . '/header.php';
 ?>
@@ -25,6 +32,14 @@ include __DIR__ . '/header.php';
     <a class="btn btn-outline-secondary btn-sm" href="<?= e(BASE_URL) ?>/admin.php">Back</a>
   </div>
 </div>
+
+<?php if (!$auditTableExists): ?>
+  <div class="alert alert-warning">
+    <i class="bi bi-exclamation-triangle"></i>
+    <strong>Setup Required:</strong> The <code>admin_audit_log</code> table does not exist yet.
+    Run the latest SQL migration from <code>db_schema.sql</code>.
+  </div>
+<?php endif; ?>
 
 <div class="card">
   <div class="card-body">

@@ -117,7 +117,13 @@ if ($viewUid > 0) {
     $viewUser = $userStmt->fetch();
 
     if ($viewUser) {
-        $viewUserPoints = user_points($viewUid);
+        try {
+            $viewUserPoints = user_points($viewUid);
+        } catch (Throwable $e) {
+            $fallbackPointsStmt = $pdo->prepare('SELECT COALESCE(SUM(points_awarded),0) FROM solves WHERE user_id=?');
+            $fallbackPointsStmt->execute([$viewUid]);
+            $viewUserPoints = (int)$fallbackPointsStmt->fetchColumn();
+        }
         $viewUserSolves = solved_count($viewUid);
 
         if ($tableExists) {

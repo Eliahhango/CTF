@@ -68,6 +68,8 @@ if ($now < $startTs) {
   $secondsLeft = 0;
   $mode = 'ended';
 }
+$secondsLeft = $secondsLeft ?? 0;
+$mode = $mode ?? 'closed';
 ?>
 <!doctype html>
 <html lang="en">

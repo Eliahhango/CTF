@@ -8,7 +8,19 @@ require_active_user();
 $u = current_user();
 $userId = sanitize_int($u['id'] ?? 0, 0, 1);
 
-$points = user_points($userId);
+$points = 0;
+try {
+    $points = user_points($userId);
+} catch (Throwable $e) {
+    // Backward compatibility: older DBs may not have hint_deductions yet.
+    try {
+        $fallbackPointsStmt = db()->prepare('SELECT COALESCE(SUM(points_awarded),0) FROM solves WHERE user_id=?');
+        $fallbackPointsStmt->execute([$userId]);
+        $points = (int)$fallbackPointsStmt->fetchColumn();
+    } catch (Throwable $inner) {
+        $points = 0;
+    }
+}
 $solved = solved_count($userId);
 
 $stmt = db()->prepare('SELECT s.solved_at, c.id AS challenge_id, c.title, c.points FROM solves s JOIN challenges c ON c.id=s.challenge_id WHERE s.user_id=? ORDER BY s.solved_at DESC LIMIT 10');

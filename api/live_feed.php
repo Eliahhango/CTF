@@ -13,23 +13,33 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $since)) {
     $since = date('Y-m-d H:i:s', time() - 60);
 }
 
-$stmt = db()->prepare(
-    'SELECT s.solved_at, u.username, c.title, c.id AS challenge_id, c.category, s.points_awarded
-     FROM solves s
-     JOIN users u ON u.id = s.user_id
-     JOIN challenges c ON c.id = s.challenge_id
-     WHERE s.solved_at > ?
-     ORDER BY s.solved_at DESC
-     LIMIT 8'
-);
-$stmt->execute([$since]);
-$solves = $stmt->fetchAll();
+$solves = [];
+try {
+    $stmt = db()->prepare(
+        'SELECT s.solved_at, u.username, c.title, c.id AS challenge_id, c.category, s.points_awarded
+         FROM solves s
+         JOIN users u ON u.id = s.user_id
+         JOIN challenges c ON c.id = s.challenge_id
+         WHERE s.solved_at > ?
+         ORDER BY s.solved_at DESC
+         LIMIT 8'
+    );
+    $stmt->execute([$since]);
+    $solves = $stmt->fetchAll();
+} catch (Throwable $e) {
+    $solves = [];
+}
 
-$annStmt = db()->prepare(
-    'SELECT id, title, created_at FROM announcements WHERE created_at > ? ORDER BY created_at DESC LIMIT 3'
-);
-$annStmt->execute([$since]);
-$announcements = $annStmt->fetchAll();
+$announcements = [];
+try {
+    $annStmt = db()->prepare(
+        'SELECT id, title, created_at FROM announcements WHERE created_at > ? ORDER BY created_at DESC LIMIT 3'
+    );
+    $annStmt->execute([$since]);
+    $announcements = $annStmt->fetchAll();
+} catch (Throwable $e) {
+    $announcements = [];
+}
 
 echo json_encode([
     'ts'            => date('Y-m-d H:i:s'),

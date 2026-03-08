@@ -196,38 +196,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flagPlaintextStored = flag_encrypt($flagPlain);
         }
 
-        $stmt = $pdo->prepare(
-            'INSERT INTO challenges (title,category,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,description,flag_hash,flag_type,flag_plaintext,prerequisite_id,is_active,created_at)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,NOW())'
-        );
-        $stmt->execute([
-            $title,
-            $category,
-            $points,
-            $initialPoints,
-            $floorPoints,
-            $decaySolves,
-            $scoringType,
-            $maxAttempts,
-            $description,
-            $flagHash,
-            $flagType,
-            $flagPlaintextStored,
-            $prereqId,
-        ]);
+        try {
+            $pdo->prepare(
+                'INSERT INTO challenges (title,category,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,description,flag_hash,flag_type,flag_plaintext,prerequisite_id,is_active,created_at)
+                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,NOW())'
+            )->execute([
+                $title,
+                $category,
+                $points,
+                $initialPoints,
+                $floorPoints,
+                $decaySolves,
+                $scoringType,
+                $maxAttempts,
+                $description,
+                $flagHash,
+                $flagType,
+                $flagPlaintextStored,
+                $prereqId,
+            ]);
+        } catch (Throwable $e) {
+            // New columns don't exist - fall back to older schemas.
+            $fallbackFlagHash = $flagHash !== '' ? $flagHash : password_hash($flagPlain, PASSWORD_BCRYPT);
+            try {
+                $pdo->prepare(
+                    'INSERT INTO challenges (title,category,points,initial_points,floor_points,decay_solves,scoring_type,description,flag_hash,is_active,created_at)
+                     VALUES (?,?,?,?,?,?,?,?,?,1,NOW())'
+                )->execute([
+                    $title,
+                    $category,
+                    $points,
+                    $initialPoints,
+                    $floorPoints,
+                    $decaySolves,
+                    $scoringType,
+                    $description,
+                    $fallbackFlagHash,
+                ]);
+                flash_set('warning', 'Challenge created without new features. Run the DB migration to enable max_attempts and flag_type.');
+            } catch (Throwable $legacyError) {
+                $pdo->prepare(
+                    'INSERT INTO challenges (title,category,points,description,flag_hash,is_active,created_at)
+                     VALUES (?,?,?,?,?,1,NOW())'
+                )->execute([
+                    $title,
+                    $category,
+                    $points,
+                    $description,
+                    $fallbackFlagHash,
+                ]);
+                flash_set('warning', 'Challenge created in legacy mode. Run DB migrations to enable advanced fields.');
+            }
+        }
         $newId = (int)$pdo->lastInsertId();
         $challengeId = $newId;
 
         $hints = is_array($_POST['hints'] ?? null) ? $_POST['hints'] : [];
         $hintCosts = is_array($_POST['hint_costs'] ?? null) ? $_POST['hint_costs'] : [];
-        $hintInsertStmt = $pdo->prepare('INSERT INTO hints (challenge_id, content, cost, sort_order) VALUES (?,?,?,?)');
+        try {
+            $hintInsertStmt = $pdo->prepare('INSERT INTO hints (challenge_id, content, cost, sort_order) VALUES (?,?,?,?)');
 
-        foreach ($hints as $i => $hintTextRaw) {
-            $hintText = sanitize_str($hintTextRaw, 2000);
-            $hintCost = max(0, (int)($hintCosts[$i] ?? 0));
-            if ($hintText !== '') {
-                $hintInsertStmt->execute([$newId, $hintText, $hintCost, (int)$i]);
+            foreach ($hints as $i => $hintTextRaw) {
+                $hintText = sanitize_str($hintTextRaw, 2000);
+                $hintCost = max(0, (int)($hintCosts[$i] ?? 0));
+                if ($hintText !== '') {
+                    $hintInsertStmt->execute([$newId, $hintText, $hintCost, (int)$i]);
+                }
             }
+        } catch (Throwable $e) {
+            flash_set('warning', 'Hints table not available yet. Challenge was created without hints.');
         }
 
         $uploadSummary = process_challenge_attachment_batch($challengeId, $_FILES['attachments'] ?? null, 'create');
@@ -311,13 +348,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $prereqId = null;
         }
 
-        $currentFlagStmt = $pdo->prepare('SELECT flag_hash, flag_type, flag_plaintext FROM challenges WHERE id=? LIMIT 1');
-        $currentFlagStmt->execute([$id]);
-        $currentFlagRow = $currentFlagStmt->fetch();
+        try {
+            $currentFlagStmt = $pdo->prepare('SELECT flag_hash, flag_type, flag_plaintext FROM challenges WHERE id=? LIMIT 1');
+            $currentFlagStmt->execute([$id]);
+            $currentFlagRow = $currentFlagStmt->fetch();
+        } catch (Throwable $e) {
+            $currentFlagStmt = $pdo->prepare('SELECT flag_hash FROM challenges WHERE id=? LIMIT 1');
+            $currentFlagStmt->execute([$id]);
+            $currentFlagRow = $currentFlagStmt->fetch();
+        }
         if (!$currentFlagRow) {
             flash_set('danger', 'Challenge not found.');
             redirect('/admin_challenges.php');
         }
+        $currentFlagRow['flag_type'] = (string)($currentFlagRow['flag_type'] ?? 'static');
+        $currentFlagRow['flag_plaintext'] = (string)($currentFlagRow['flag_plaintext'] ?? '');
 
         if ($flagPlain === '') {
             $existingType = (string)($currentFlagRow['flag_type'] ?? 'static');
@@ -342,38 +387,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        $stmt = $pdo->prepare(
-            'UPDATE challenges
-             SET title=?,category=?,points=?,initial_points=?,floor_points=?,decay_solves=?,scoring_type=?,max_attempts=?,description=?,flag_hash=?,flag_type=?,flag_plaintext=?,prerequisite_id=?
-             WHERE id=?'
-        );
-        $stmt->execute([
-            $title,
-            $category,
-            $points,
-            $initialPoints,
-            $floorPoints,
-            $decaySolves,
-            $scoringType,
-            $maxAttempts,
-            $description,
-            $flagHash,
-            $flagType,
-            $flagPlaintextStored,
-            $prereqId,
-            $id,
-        ]);
-
-        $pdo->prepare('DELETE FROM hints WHERE challenge_id=?')->execute([$id]);
-        $hints = is_array($_POST['hints'] ?? null) ? $_POST['hints'] : [];
-        $hintCosts = is_array($_POST['hint_costs'] ?? null) ? $_POST['hint_costs'] : [];
-        $hintInsertStmt = $pdo->prepare('INSERT INTO hints (challenge_id, content, cost, sort_order) VALUES (?,?,?,?)');
-        foreach ($hints as $i => $hintTextRaw) {
-            $hintText = sanitize_str($hintTextRaw, 2000);
-            $hintCost = max(0, (int)($hintCosts[$i] ?? 0));
-            if ($hintText !== '') {
-                $hintInsertStmt->execute([$id, $hintText, $hintCost, (int)$i]);
+        try {
+            $stmt = $pdo->prepare(
+                'UPDATE challenges
+                 SET title=?,category=?,points=?,initial_points=?,floor_points=?,decay_solves=?,scoring_type=?,max_attempts=?,description=?,flag_hash=?,flag_type=?,flag_plaintext=?,prerequisite_id=?
+                 WHERE id=?'
+            );
+            $stmt->execute([
+                $title,
+                $category,
+                $points,
+                $initialPoints,
+                $floorPoints,
+                $decaySolves,
+                $scoringType,
+                $maxAttempts,
+                $description,
+                $flagHash,
+                $flagType,
+                $flagPlaintextStored,
+                $prereqId,
+                $id,
+            ]);
+        } catch (Throwable $e) {
+            $fallbackFlagHash = $flagHash !== '' ? $flagHash : (
+                $flagPlain !== '' ? password_hash($flagPlain, PASSWORD_BCRYPT) : (string)($currentFlagRow['flag_hash'] ?? '')
+            );
+            try {
+                $stmt = $pdo->prepare(
+                    'UPDATE challenges
+                     SET title=?,category=?,points=?,initial_points=?,floor_points=?,decay_solves=?,scoring_type=?,description=?,flag_hash=?
+                     WHERE id=?'
+                );
+                $stmt->execute([
+                    $title,
+                    $category,
+                    $points,
+                    $initialPoints,
+                    $floorPoints,
+                    $decaySolves,
+                    $scoringType,
+                    $description,
+                    $fallbackFlagHash,
+                    $id,
+                ]);
+                flash_set('warning', 'Challenge updated without advanced fields. Run DB migrations to enable all options.');
+            } catch (Throwable $legacyError) {
+                $stmt = $pdo->prepare(
+                    'UPDATE challenges
+                     SET title=?,category=?,points=?,description=?,flag_hash=?
+                     WHERE id=?'
+                );
+                $stmt->execute([
+                    $title,
+                    $category,
+                    $points,
+                    $description,
+                    $fallbackFlagHash,
+                    $id,
+                ]);
+                flash_set('warning', 'Challenge updated in legacy mode. Run DB migrations to enable all options.');
             }
+        }
+
+        try {
+            $pdo->prepare('DELETE FROM hints WHERE challenge_id=?')->execute([$id]);
+            $hints = is_array($_POST['hints'] ?? null) ? $_POST['hints'] : [];
+            $hintCosts = is_array($_POST['hint_costs'] ?? null) ? $_POST['hint_costs'] : [];
+            $hintInsertStmt = $pdo->prepare('INSERT INTO hints (challenge_id, content, cost, sort_order) VALUES (?,?,?,?)');
+            foreach ($hints as $i => $hintTextRaw) {
+                $hintText = sanitize_str($hintTextRaw, 2000);
+                $hintCost = max(0, (int)($hintCosts[$i] ?? 0));
+                if ($hintText !== '') {
+                    $hintInsertStmt->execute([$id, $hintText, $hintCost, (int)$i]);
+                }
+            }
+        } catch (Throwable $e) {
+            flash_set('warning', 'Hints table not available yet. Challenge was updated without hint changes.');
         }
 
         $uploadSummary = process_challenge_attachment_batch($id, $_FILES['attachments_edit'] ?? null, 'update');
@@ -398,57 +488,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$challs = $pdo->query(
-    'SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,flag_type,prerequisite_id,description,is_active,created_at
-     FROM challenges
-     ORDER BY created_at DESC'
-)->fetchAll();
+try {
+    $challs = $pdo->query(
+        'SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,max_attempts,flag_type,prerequisite_id,description,is_active,created_at
+         FROM challenges
+         ORDER BY created_at DESC'
+    )->fetchAll();
+} catch (Throwable $e) {
+    $challs = $pdo->query(
+        "SELECT id,title,category,points,points AS initial_points,100 AS floor_points,50 AS decay_solves,'static' AS scoring_type,0 AS max_attempts,'static' AS flag_type,NULL AS prerequisite_id,description,is_active,created_at
+         FROM challenges
+         ORDER BY created_at DESC"
+    )->fetchAll();
+}
 
-$allChallenges = $pdo->query(
-    'SELECT id, title FROM challenges WHERE is_active=1 ORDER BY title ASC'
-)->fetchAll();
+try {
+    $allChallenges = $pdo->query('SELECT id, title FROM challenges WHERE is_active=1 ORDER BY title ASC')->fetchAll();
+} catch (Throwable $e) {
+    $allChallenges = [];
+}
 
 $challengeFilesById = [];
 if ($challs) {
-    $challengeIds = array_values(array_map(static fn(array $challenge): int => (int)$challenge['id'], $challs));
-    $placeholders = implode(',', array_fill(0, count($challengeIds), '?'));
-    $filesStmt = $pdo->prepare(
-        "SELECT id, challenge_id, original_name, file_size, uploaded_at
-         FROM challenge_files
-         WHERE challenge_id IN ($placeholders)
-         ORDER BY uploaded_at DESC, id DESC"
-    );
-    $filesStmt->execute($challengeIds);
-    $fileRows = $filesStmt->fetchAll();
+    try {
+        $challengeIds = array_values(array_map(static fn(array $challenge): int => (int)$challenge['id'], $challs));
+        $placeholders = implode(',', array_fill(0, count($challengeIds), '?'));
+        $filesStmt = $pdo->prepare(
+            "SELECT id, challenge_id, original_name, file_size, uploaded_at
+             FROM challenge_files
+             WHERE challenge_id IN ($placeholders)
+             ORDER BY uploaded_at DESC, id DESC"
+        );
+        $filesStmt->execute($challengeIds);
+        $fileRows = $filesStmt->fetchAll();
 
-    foreach ($fileRows as $row) {
-        $challengeId = (int)$row['challenge_id'];
-        if (!isset($challengeFilesById[$challengeId])) {
-            $challengeFilesById[$challengeId] = [];
+        foreach ($fileRows as $row) {
+            $challengeId = (int)$row['challenge_id'];
+            if (!isset($challengeFilesById[$challengeId])) {
+                $challengeFilesById[$challengeId] = [];
+            }
+            $challengeFilesById[$challengeId][] = $row;
         }
-        $challengeFilesById[$challengeId][] = $row;
+    } catch (Throwable $e) {
+        $challengeFilesById = [];
     }
 }
 
 $challengeHintsById = [];
 if ($challs) {
-    $challengeIds = array_values(array_map(static fn(array $challenge): int => (int)$challenge['id'], $challs));
-    $placeholders = implode(',', array_fill(0, count($challengeIds), '?'));
-    $hintsStmt = $pdo->prepare(
-        "SELECT id, challenge_id, content, cost, sort_order
-         FROM hints
-         WHERE challenge_id IN ($placeholders)
-         ORDER BY sort_order ASC, id ASC"
-    );
-    $hintsStmt->execute($challengeIds);
-    $hintRows = $hintsStmt->fetchAll();
+    try {
+        $challengeIds = array_values(array_map(static fn(array $challenge): int => (int)$challenge['id'], $challs));
+        $placeholders = implode(',', array_fill(0, count($challengeIds), '?'));
+        $hintsStmt = $pdo->prepare(
+            "SELECT id, challenge_id, content, cost, sort_order
+             FROM hints
+             WHERE challenge_id IN ($placeholders)
+             ORDER BY sort_order ASC, id ASC"
+        );
+        $hintsStmt->execute($challengeIds);
+        $hintRows = $hintsStmt->fetchAll();
 
-    foreach ($hintRows as $row) {
-        $challengeId = (int)$row['challenge_id'];
-        if (!isset($challengeHintsById[$challengeId])) {
-            $challengeHintsById[$challengeId] = [];
+        foreach ($hintRows as $row) {
+            $challengeId = (int)$row['challenge_id'];
+            if (!isset($challengeHintsById[$challengeId])) {
+                $challengeHintsById[$challengeId] = [];
+            }
+            $challengeHintsById[$challengeId][] = $row;
         }
-        $challengeHintsById[$challengeId][] = $row;
+    } catch (Throwable $e) {
+        $challengeHintsById = [];
     }
 }
 

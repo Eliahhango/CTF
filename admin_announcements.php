@@ -25,36 +25,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('/admin_announcements.php');
         }
 
-        $stmt = $pdo->prepare(
-            'INSERT INTO announcements (title, body, is_pinned, created_by, created_at)
-             VALUES (?,?,?,?,NOW())'
-        );
-        $stmt->execute([$title, $body, $isPinned, $adminId]);
-        $announcementId = (int)$pdo->lastInsertId();
-        log_admin_action('post_announcement', 'announcement', $announcementId, 'title=' . $title . '; pinned=' . (string)$isPinned);
+        try {
+            $stmt = $pdo->prepare(
+                'INSERT INTO announcements (title, body, is_pinned, created_by, created_at)
+                 VALUES (?,?,?,?,NOW())'
+            );
+            $stmt->execute([$title, $body, $isPinned, $adminId]);
+            $announcementId = (int)$pdo->lastInsertId();
+            log_admin_action('post_announcement', 'announcement', $announcementId, 'title=' . $title . '; pinned=' . (string)$isPinned);
 
-        flash_set('success', 'Announcement published.');
+            flash_set('success', 'Announcement published.');
+        } catch (Throwable $e) {
+            flash_set('warning', 'Announcements table is not available yet. Run DB migrations first.');
+        }
         redirect('/admin_announcements.php');
     }
 
     if ($action === 'delete') {
         $id = sanitize_int($_POST['id'] ?? 0, 0, 1);
         if ($id > 0) {
-            $stmt = $pdo->prepare('DELETE FROM announcements WHERE id=?');
-            $stmt->execute([$id]);
-            log_admin_action('delete_announcement', 'announcement', $id, 'affected=' . (string)$stmt->rowCount());
-            flash_set('warning', 'Announcement removed.');
+            try {
+                $stmt = $pdo->prepare('DELETE FROM announcements WHERE id=?');
+                $stmt->execute([$id]);
+                log_admin_action('delete_announcement', 'announcement', $id, 'affected=' . (string)$stmt->rowCount());
+                flash_set('warning', 'Announcement removed.');
+            } catch (Throwable $e) {
+                flash_set('warning', 'Announcements table is not available yet. Run DB migrations first.');
+            }
         }
         redirect('/admin_announcements.php');
     }
 }
 
-$rows = $pdo->query(
-    'SELECT a.id, a.title, a.body, a.is_pinned, a.created_at, u.username AS author
-     FROM announcements a
-     JOIN users u ON u.id = a.created_by
-     ORDER BY a.is_pinned DESC, a.created_at DESC, a.id DESC'
-)->fetchAll();
+try {
+    $rows = $pdo->query(
+        'SELECT a.id, a.title, a.body, a.is_pinned, a.created_at, u.username AS author
+         FROM announcements a
+         JOIN users u ON u.id = a.created_by
+         ORDER BY a.is_pinned DESC, a.created_at DESC, a.id DESC'
+    )->fetchAll();
+} catch (Throwable $e) {
+    $rows = [];
+}
 
 include __DIR__ . '/header.php';
 ?>

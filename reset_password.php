@@ -15,17 +15,21 @@ function find_valid_password_reset(string $rawToken): ?array
         return null;
     }
 
-    $tokenHash = hash('sha256', $rawToken);
-    $stmt = db()->prepare(
-        'SELECT id, user_id
-         FROM password_resets
-         WHERE token_hash = ?
-           AND used_at IS NULL
-           AND expires_at > NOW()
-         LIMIT 1'
-    );
-    $stmt->execute([$tokenHash]);
-    $row = $stmt->fetch();
+    try {
+        $tokenHash = hash('sha256', $rawToken);
+        $stmt = db()->prepare(
+            'SELECT id, user_id
+             FROM password_resets
+             WHERE token_hash = ?
+               AND used_at IS NULL
+               AND expires_at > NOW()
+             LIMIT 1'
+        );
+        $stmt->execute([$tokenHash]);
+        $row = $stmt->fetch();
+    } catch (Throwable $e) {
+        return null;
+    }
 
     return $row ?: null;
 }

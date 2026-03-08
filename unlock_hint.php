@@ -22,16 +22,20 @@ if ($userId <= 0 || $hintId <= 0 || $challengeId <= 0) {
 }
 
 $pdo = db();
-
-$hintStmt = $pdo->prepare(
-    'SELECT h.id, h.challenge_id, h.cost, c.is_active
-     FROM hints h
-     JOIN challenges c ON c.id = h.challenge_id
-     WHERE h.id=?
-     LIMIT 1'
-);
-$hintStmt->execute([$hintId]);
-$hint = $hintStmt->fetch();
+try {
+    $hintStmt = $pdo->prepare(
+        'SELECT h.id, h.challenge_id, h.cost, c.is_active
+         FROM hints h
+         JOIN challenges c ON c.id = h.challenge_id
+         WHERE h.id=?
+         LIMIT 1'
+    );
+    $hintStmt->execute([$hintId]);
+    $hint = $hintStmt->fetch();
+} catch (Throwable $e) {
+    flash_set('warning', 'Hints are not available yet. Run DB migrations first.');
+    redirect('/challenge.php?id=' . $challengeId);
+}
 
 if (
     !$hint
@@ -42,10 +46,15 @@ if (
     redirect('/challenge.php?id=' . $challengeId);
 }
 
-$existingStmt = $pdo->prepare('SELECT 1 FROM hint_unlocks WHERE user_id=? AND hint_id=? LIMIT 1');
-$existingStmt->execute([$userId, $hintId]);
-if ($existingStmt->fetchColumn()) {
-    flash_set('info', 'Hint already unlocked.');
+try {
+    $existingStmt = $pdo->prepare('SELECT 1 FROM hint_unlocks WHERE user_id=? AND hint_id=? LIMIT 1');
+    $existingStmt->execute([$userId, $hintId]);
+    if ($existingStmt->fetchColumn()) {
+        flash_set('info', 'Hint already unlocked.');
+        redirect('/challenge.php?id=' . $challengeId);
+    }
+} catch (Throwable $e) {
+    flash_set('warning', 'Hints are not available yet. Run DB migrations first.');
     redirect('/challenge.php?id=' . $challengeId);
 }
 

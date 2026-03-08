@@ -9,12 +9,22 @@ if (!challenges_window_open()) {
 
 $u = current_user();
 
-$challs = db()->query(
-    "SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,prerequisite_id
-     FROM challenges
-     WHERE is_active=1
-     ORDER BY points ASC, id ASC"
-)->fetchAll();
+try {
+    $challs = db()->query(
+        "SELECT id,title,category,points,initial_points,floor_points,decay_solves,scoring_type,prerequisite_id
+         FROM challenges
+         WHERE is_active=1
+         ORDER BY points ASC, id ASC"
+    )->fetchAll();
+} catch (Throwable $e) {
+    // New columns may not exist yet - query with safe legacy aliases.
+    $challs = db()->query(
+        "SELECT id,title,category,points,points AS initial_points,100 AS floor_points,50 AS decay_solves,'static' AS scoring_type,NULL AS prerequisite_id
+         FROM challenges
+         WHERE is_active=1
+         ORDER BY points ASC, id ASC"
+    )->fetchAll();
+}
 
 $stmt = db()->prepare("SELECT challenge_id FROM solves WHERE user_id=?");
 $stmt->execute([sanitize_int($u['id'] ?? 0)]);
@@ -36,7 +46,11 @@ foreach ($statsRows as $row) {
         'first_blood' => (string)($row['first_blood'] ?? ''),
     ];
 }
-$totalPlayers = (int)db()->query("SELECT COUNT(*) FROM users WHERE status='active' AND role='user'")->fetchColumn();
+try {
+    $totalPlayers = (int)db()->query("SELECT COUNT(*) FROM users WHERE status='active' AND role='user'")->fetchColumn();
+} catch (Throwable $e) {
+    $totalPlayers = 1;
+}
 
 $categories = [];
 foreach ($challs as $challenge) {
